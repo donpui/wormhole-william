@@ -27,17 +27,22 @@ Flags:
   -c, --code-length int   length of code (in bytes/words)
   -h, --help              help for send
       --hide-progress     suppress progress-bar display
+      --text string       text message to send, instead of a file.
+                          Use '-' to read from stdin
   -v, --verify            display verification string (and wait for approval)
 
 Global Flags:
-      --relay-url string   rendezvous relay to use
+      --appid string            AppID to use (default "lothar.com/wormhole/text-or-file-xfer")
+      --no-listen               (debug) don't open a listening socket for transit
+      --relay-url string        rendezvous relay to use (default "ws://relay.magic-wormhole.io:4000/v1")
+      --transit-helper string   relay server url (default "tcp:transit.magic-wormhole.io:4001")
 
 
 $ wormhole-william receive --help
 Receive a text message, file, or directory...
 
 Usage:
-  wormhole-william receive [code] [flags]
+  wormhole-william receive [OPTIONS] [CODE]... [flags]
 
 Aliases:
   receive, recv
@@ -48,7 +53,11 @@ Flags:
   -v, --verify          display verification string (and wait for approval)
 
 Global Flags:
-      --relay-url string   rendezvous relay to use
+      --appid string            AppID to use (default "lothar.com/wormhole/text-or-file-xfer")
+      --no-listen               (debug) don't open a listening socket for transit
+      --relay-url string        rendezvous relay to use (default "ws://relay.magic-wormhole.io:4000/v1")
+      --transit-helper string   relay server url (default "tcp:transit.magic-wormhole.io:4001")
+
 ```
 
 ### CLI tab completion

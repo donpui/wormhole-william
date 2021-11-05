@@ -15,6 +15,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/LeastAuthority/hashcash"
 	"github.com/gorilla/websocket"
 	"github.com/psanford/wormhole-william/internal/crypto"
 	"github.com/psanford/wormhole-william/rendezvous/internal/msgs"

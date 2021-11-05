@@ -19,10 +19,10 @@ import (
 //
 // It returns an IncomingMessage with metadata about the payload being sent.
 // To read the contents of the message call IncomingMessage.Read().
-func (c *Client) Receive(ctx context.Context, code string) (fr *IncomingMessage, returnErr error) {
+func (c *Client) Receive(ctx context.Context, code string, disableListener bool, opts ...TransferOption) (fr *IncomingMessage, returnErr error) {
 	sideID := crypto.RandSideID()
-	appID := c.appID()
-	rc := rendezvous.NewClient(c.url(), sideID, appID)
+	appID := c.AppID
+	rc := rendezvous.NewClient(c.RendezvousURL, sideID, appID)
 
 	defer func() {
 		mood := rendezvous.Errory
@@ -104,6 +104,12 @@ func (c *Client) Receive(ctx context.Context, code string) (fr *IncomingMessage,
 	}
 
 	fr = &IncomingMessage{}
+	for _, opt := range opts {
+		err := opt.setOption(&fr.options)
+		if err != nil {
+			return nil, err
+		}
+	}
 
 	if offer.Message != nil {
 		answer := genericMessage{
@@ -157,7 +163,7 @@ func (c *Client) Receive(ctx context.Context, code string) (fr *IncomingMessage,
 	}
 
 	transitKey := deriveTransitKey(clientProto.sharedKey, appID)
-	transport := newFileTransport(transitKey, appID, c.relayAddr())
+	transport := newFileTransport(transitKey, appID, c.relayURL(), disableListener)
 
 	transitMsg, err := transport.makeTransitMsg()
 	if err != nil {
@@ -186,7 +192,6 @@ func (c *Client) Receive(ctx context.Context, code string) (fr *IncomingMessage,
 		answer := &genericMessage{
 			Error: &errStr,
 		}
-		ctx := context.Background()
 
 		err = clientProto.WriteAppData(ctx, answer)
 		if err != nil {
@@ -297,11 +302,17 @@ type IncomingMessage struct {
 	cryptor   *transportCryptor
 	buf       []byte
 	readCount int64
+	options   transferOptions
 	sha256    hash.Hash
 
 	readErr error
 
 	ctx context.Context
+}
+
+// Return true if the msg has finished being read.
+func (f *IncomingMessage) ReadDone() bool {
+	return f.readCount >= f.UncompressedBytes64
 }
 
 // Read the decrypted contents sent to this client.
@@ -389,6 +400,7 @@ func (f *IncomingMessage) readCrypt(p []byte) (int, error) {
 	n := copy(p, f.buf)
 	f.buf = f.buf[n:]
 	f.readCount += int64(n)
+	f.updateProgress()
 	f.sha256.Write(p[:n])
 	if f.readCount >= f.TransferBytes64 {
 		f.readErr = io.EOF
@@ -405,4 +417,11 @@ func (f *IncomingMessage) readCrypt(p []byte) (int, error) {
 	}
 
 	return n, nil
+}
+
+func (f *IncomingMessage) updateProgress() {
+	if f.options.progressFunc != nil {
+		// NB: f.readCount can be > f.UncompressedBytes64.
+		f.options.progressFunc(f.readCount, f.UncompressedBytes64)
+	}
 }

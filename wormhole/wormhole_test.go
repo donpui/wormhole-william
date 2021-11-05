@@ -381,7 +381,6 @@ func TestWormholeFileTransportRecvMidStreamCancel(t *testing.T) {
 	}
 
 	childCtx, cancel := context.WithCancel(ctx)
-	defer cancel()
 
 	receiver, err := c1.Receive(childCtx, code)
 	if err != nil {
