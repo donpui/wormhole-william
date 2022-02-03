@@ -13,7 +13,6 @@ import (
 	"math/big"
 	"net"
 	"strconv"
-	"time"
 
 	"github.com/psanford/wormhole-william/internal"
 	"github.com/psanford/wormhole-william/internal/crypto"
@@ -204,16 +203,10 @@ func (t *fileTransport) connectViaRelay(otherTransit *transitMsg) (net.Conn, err
 
 	var conn net.Conn
 
-	connectTimeout := time.After(5 * time.Second)
-
 	for i := 0; i < count; i++ {
 		select {
 		case <-failChan:
 		case conn = <-successChan:
-		case <-connectTimeout:
-			for _, cancel := range cancelFuncs {
-				cancel()
-			}
 		}
 	}
 
@@ -242,16 +235,10 @@ func (t *fileTransport) connectDirect(otherTransit *transitMsg) (net.Conn, error
 
 	var conn net.Conn
 
-	connectTimeout := time.After(5 * time.Second)
-
 	for i := 0; i < count; i++ {
 		select {
 		case <-failChan:
 		case conn = <-successChan:
-		case <-connectTimeout:
-			for _, cancel := range cancelFuncs {
-				cancel()
-			}
 		}
 	}
 
