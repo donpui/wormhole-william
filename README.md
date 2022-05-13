@@ -1,6 +1,6 @@
 # wormhole-william
 
-wormhole-william is a Go (golang) implementation of [magic wormhole](https://magic-wormhole.readthedocs.io/en/latest/). It provides secure end-to-end encrypted file transfers between computers. The endpoints are connected using the same "wormhole code".
+wormhole-william is a Go (golang) implementation of [magic wormhole](https://magic-wormhole.readthedocs.io/en/latest/). It provides secure end-to-end encrypted file transfers between computers. The endpoints are connected using the same "wormhole code". A secure session is established via SPAKE2 cryptography and uses the [gospake2](https://salsa.debian.org/vasudev/gospake2), an implementation of SPAKE2 algorithm as [implementated](https://github.com/warner/python-spake2) and used by the Python [magic-wormhole](https://github.com/magic-wormhole/magic-wormhole) client. 
 
 wormhole-william is compatible with the official [python magic wormhole cli tool](https://github.com/warner/magic-wormhole).
 
@@ -12,6 +12,8 @@ Currently, wormhole-william supports:
 ## Docs
 
 https://pkg.go.dev/github.com/psanford/wormhole-william/wormhole?tab=doc
+
+The magic-wormhole protocol documents are described in the [magic-wormhole-protocols](https://github.com/magic-wormhole/magic-wormhole-protocols) repository.
 
 ## CLI Usage
 
@@ -73,7 +75,7 @@ wormhole-william uses go modules so it requires a version of the go tool chain >
 To just install via the go tool run:
 
 ```
-go install github.com/psanford/wormhole-william@latest
+go install github.com/LeastAuthority/wormhole-william@latest
 ```
 
 ## API Usage
@@ -119,7 +121,7 @@ func recvText(code string) {
 	var c wormhole.Client
 
 	ctx := context.Background()
-	msg, err := c.Receive(ctx, code)
+	msg, err := c.Receive(ctx, code, false)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -138,12 +140,18 @@ func recvText(code string) {
 }
 ```
 
+Similarly there are APIs to send file and directories: `SendFile()`
+and `SendDirectory()`. Please look at `wormhole/send.go and
+wormhole/recv.go` to look at the definitions of these functions.
+
 See the [cli tool](https://github.com/psanford/wormhole-william/tree/master/cmd) and [examples](https://github.com/psanford/wormhole-william/tree/master/examples) directory for working examples of how to use the API to send and receive text, files and directories.
 
 ## Third Party Users of Wormhole William
-
+  // TODO review
 - [rymdport](https://github.com/Jacalz/rymdport): A cross-platform Magic Wormhole graphical user interface
 - [riftshare](https://github.com/achhabra2/riftshare): Desktop filesharing app
+- [wormhole-gui](https://github.com/Jacalz/wormhole-gui): A Magic Wormhole graphical user interface
+- [wormhole-william-mobile](https://github.com/psanford/wormhole-william-mobile): Android wormhole-william app
 - [termshark](https://github.com/gcla/termshark): A terminal UI for tshark
 - [tmux-wormhole](https://github.com/gcla/tmux-wormhole): tmux wormhole integration
 - [wormhole-william-mobile](https://github.com/psanford/wormhole-william-mobile): Android wormhole-william app
