@@ -14,6 +14,10 @@ jobs:
           go-version: "1.17.5"
       - name: Checkout code
         uses: actions/checkout@v2
+        with:
+          # Checkout exactly the triggering revision without going through a
+          # step to resolve a ref to a revision.
+          ref: "${{ github.sha }}"
       - name: Build Artifacts
         run: go run build_release.go
       - name: Create Release
