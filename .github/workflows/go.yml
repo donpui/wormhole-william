@@ -19,7 +19,11 @@ jobs:
       id: go
 
     - name: Check out code into the Go module directory
-      uses: actions/checkout@v1
+      uses: actions/checkout@v2
+      with:
+        # Checkout head of the branch of the PR, or the exact revision
+        # specified for non-PR builds.
+        ref: "${{ github.event.pull_request.head.sha || github.sha }}"
 
     - name: Build
       run: go build -v ./...

@@ -21,7 +21,7 @@ func main() {
 	var c wormhole.Client
 
 	ctx := context.Background()
-	msg, err := c.Receive(ctx, code)
+	msg, err := c.Receive(ctx, code, false)
 	if err != nil {
 		log.Fatal(err)
 	}

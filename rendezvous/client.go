@@ -10,6 +10,7 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"github.com/LeastAuthority/hashcash"
 	"github.com/psanford/wormhole-william/internal/crypto"
 	"github.com/psanford/wormhole-william/rendezvous/internal/msgs"
 	"github.com/psanford/wormhole-william/version"
@@ -119,9 +120,16 @@ func (c *Client) closeWithError(err error) {
 	c.err = err
 }
 
+const (
+	PermTypeUnsupported = iota
+	PermTypeNone
+	PermTypeHashCash
+)
+
 type ConnectInfo struct {
 	MOTD              string
 	CurrentCLIVersion string
+	PermType          int
 }
 
 // Connect opens a connection and binds to the rendezvous server. It
@@ -142,6 +150,7 @@ func (c *Client) Connect(ctx context.Context) (*ConnectInfo, error) {
 
 	go c.readMessages(ctx)
 
+	var permType int
 	var welcome msgs.Welcome
 	err = c.readMsg(ctx, &welcome)
 	if err != nil {
@@ -155,14 +164,58 @@ func (c *Client) Connect(ctx context.Context) (*ConnectInfo, error) {
 		return nil, err
 	}
 
-	if err := c.bind(ctx, c.sideID, c.appID); err != nil {
-		c.closeWithError(err)
-		return nil, err
+	permissionRequired := welcome.Welcome.PermissionRequired
+
+	// if permission-required key is present in the Welcome
+	// message then send the submit-permissions message followed
+	// by the bind message. If not, skip the submit-permissions
+	// message and only send the bind message.
+
+	// prioritize "none". i.e. if server does not require
+	// permissions, connect without permissions stamp.
+	if permissionRequired == nil ||
+		(permissionRequired.None != nil &&
+			*permissionRequired.None == struct{}{}) {
+		// no permission required, send bind
+		if err := c.bind(ctx, c.sideID, c.appID); err != nil {
+			c.closeWithError(err)
+			return nil, err
+		}
+
+		permType = PermTypeNone
+	} else if permissionRequired != nil && permissionRequired.HashCash != nil {
+		// hashcash: find the hashcash params, mint the
+		// corresponding stamp and send submit-permissions
+		// message.
+		requiredBits := permissionRequired.HashCash.Bits
+		resource := permissionRequired.HashCash.Resource
+		method := "hashcash"
+
+		stamp, err := hashcash.Mint(requiredBits, resource)
+		if err != nil {
+			return nil, err
+		}
+
+		if err := c.submitPermissions(ctx, method, stamp); err != nil {
+			c.closeWithError(err)
+			return nil, err
+		}
+		permType = PermTypeHashCash
+
+		// now send the bind message
+		if err := c.bind(ctx, c.sideID, c.appID); err != nil {
+			c.closeWithError(err)
+			return nil, err
+		}
+	} else {
+		// unsupported permission method
+		c.closeWithError(fmt.Errorf("unsupported permission method"))
 	}
 
 	info := ConnectInfo{
 		MOTD:              welcome.Welcome.MOTD,
 		CurrentCLIVersion: welcome.Welcome.CurrentCLIVersion,
+		PermType:          permType,
 	}
 
 	return &info, nil
@@ -533,6 +586,15 @@ func (c *Client) agentID() (string, string) {
 	}
 
 	return agent, v
+}
+
+func (c *Client) submitPermissions(ctx context.Context, method string, stamp string) error {
+	submitPermissionsMsg := msgs.SubmitPermissions{
+		Method: method,
+		Stamp:  stamp,
+	}
+	_, err := c.sendAndWait(ctx, &submitPermissionsMsg)
+	return err
 }
 
 func (c *Client) bind(ctx context.Context, side, appID string) error {

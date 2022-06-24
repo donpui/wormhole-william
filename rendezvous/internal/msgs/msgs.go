@@ -8,9 +8,27 @@ type Welcome struct {
 }
 
 type WelcomeServerInfo struct {
-	MOTD              string `json:"motd"`
-	CurrentCLIVersion string `json:"current_cli_version"`
-	Error             string `json:"error"`
+	MOTD               string                  `json:"motd"`
+	CurrentCLIVersion  string                  `json:"current_cli_version"`
+	Error              string                  `json:"error"`
+	PermissionRequired *PermissionRequiredInfo `json:"permission-required"`
+}
+
+type PermissionRequiredInfo struct {
+	None     *struct{}     `json:"none,omitempty"`
+	HashCash *HashCashInfo `json:"hashcash"`
+}
+
+type HashCashInfo struct {
+	Bits     uint   `json:"bits"`
+	Resource string `json:"resource"`
+}
+
+type SubmitPermissions struct {
+	Type   string `json:"type" rendezvous_value:"submit-permissions"`
+	ID     string `json:"id"`
+	Method string `json:"method"`
+	Stamp  string `json:"stamp"`
 }
 
 // Client sent bind message
@@ -144,21 +162,22 @@ type GenericServerMsg struct {
 }
 
 var MsgMap = map[string]interface{}{
-	"welcome":    Welcome{},
-	"bind":       Bind{},
-	"allocate":   Allocate{},
-	"ack":        Ack{},
-	"allocated":  AllocatedResp{},
-	"claim":      Claim{},
-	"claimed":    ClaimedResp{},
-	"open":       Open{},
-	"add":        Add{},
-	"message":    Message{},
-	"list":       List{},
-	"nameplates": Nameplates{},
-	"release":    Release{},
-	"released":   ReleasedResp{},
-	"error":      Error{},
-	"close":      Close{},
-	"closed":     ClosedResp{},
+	"welcome":            Welcome{},
+	"submit-permissions": SubmitPermissions{},
+	"bind":               Bind{},
+	"allocate":           Allocate{},
+	"ack":                Ack{},
+	"allocated":          AllocatedResp{},
+	"claim":              Claim{},
+	"claimed":            ClaimedResp{},
+	"open":               Open{},
+	"add":                Add{},
+	"message":            Message{},
+	"list":               List{},
+	"nameplates":         Nameplates{},
+	"release":            Release{},
+	"released":           ReleasedResp{},
+	"error":              Error{},
+	"close":              Close{},
+	"closed":             ClosedResp{},
 }

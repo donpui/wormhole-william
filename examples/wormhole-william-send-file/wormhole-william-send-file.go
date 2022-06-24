@@ -25,7 +25,7 @@ func main() {
 	var c wormhole.Client
 
 	ctx := context.Background()
-	code, status, err := c.SendFile(ctx, filename, f)
+	code, status, err := c.SendFile(ctx, filename, f, false)
 	if err != nil {
 		log.Fatal(err)
 	}

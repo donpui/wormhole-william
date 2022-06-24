@@ -1,3 +1,6 @@
+//go:build !js && !wasm
+// +build !js,!wasm
+
 package cmd
 
 import (
@@ -67,7 +70,9 @@ func newClient() wormhole.Client {
 	}
 
 	c := wormhole.Client{
+		AppID:                     appID,
 		RendezvousURL:             relayURL,
+		TransitRelayURL:           transitHelper,
 		PassPhraseComponentLength: codeLen,
 	}
 
@@ -120,7 +125,7 @@ func sendFile(filename string) {
 
 	var bar *pb.ProgressBar
 
-	args := []wormhole.SendOption{
+	args := []wormhole.TransferOption{
 		wormhole.WithCode(codeFlag),
 	}
 
@@ -139,7 +144,7 @@ func sendFile(filename string) {
 		}))
 	}
 
-	code, status, err := c.SendFile(ctx, filepath.Base(filename), f, args...)
+	code, status, err := c.SendFile(ctx, filepath.Base(filename), f, disableListener, args...)
 	if err != nil {
 		bail("Error sending message: %s", err)
 	}
@@ -196,7 +201,7 @@ func sendDir(dirpath string) {
 	c := newClient()
 
 	ctx := context.Background()
-	code, status, err := c.SendDirectory(ctx, dirname, entries, wormhole.WithCode(codeFlag))
+	code, status, err := c.SendDirectory(ctx, dirname, entries, disableListener, wormhole.WithCode(codeFlag))
 	if err != nil {
 		log.Fatal(err)
 	}

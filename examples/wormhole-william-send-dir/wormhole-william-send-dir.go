@@ -60,7 +60,7 @@ func main() {
 	var c wormhole.Client
 
 	ctx := context.Background()
-	code, status, err := c.SendDirectory(ctx, dirname, entries)
+	code, status, err := c.SendDirectory(ctx, dirname, entries, false)
 	if err != nil {
 		log.Fatal(err)
 	}
