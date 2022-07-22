@@ -95,7 +95,12 @@ func sendFile(transfer PendingTransfer, fileName string) {
 	addPendingTransfer(transfer.Reference(), cancel)
 	transferRef := transfer.Reference()
 
-	reader := NewNativeReader(transfer)
+	reader, err := NewNativeReader(transfer)
+
+	if err != nil {
+		transfer.NotifyCodeGenerationFailure(C.CodeGenerationFailed, err.Error())
+		return
+	}
 
 	code, status, err := transfer.NewClient().SendFile(ctx, fileName, reader, true, wormhole.WithProgress(transfer.UpdateProgress))
 
@@ -180,7 +185,11 @@ func recvFile(transfer PendingTransfer, code string) {
 	transfer.UpdateMetadata(msg.Name, msg.UncompressedBytes64)
 
 	download := func() {
-		c_buffer := C.malloc(MAX_READ_BUFFER_LEN)
+		c_buffer, err := transfer.Malloc(MAX_READ_BUFFER_LEN)
+		if err != nil {
+			transfer.NotifyError(C.ReceiveFileError, err.Error())
+			return
+		}
 		defer C.free(c_buffer)
 
 		buffer := make([]byte, MAX_READ_BUFFER_LEN)

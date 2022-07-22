@@ -1,4 +1,5 @@
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 
 #ifndef CLIENT_INCLUDED
@@ -84,6 +85,7 @@ typedef seek_result_t (*seekf)(void *context, int64_t offset, int32_t whence);
 typedef char *(*writef)(void *context, uint8_t *buffer, int length);
 
 typedef void (*logf)(void *context, char *message);
+typedef void (*oomf)();
 
 typedef struct {
   readf read;
@@ -95,6 +97,7 @@ typedef struct {
   writef write;
   void (*free_client_ctx)(client_context_t t);
   logf log;
+  oomf oom;
 } client_impl_t;
 
 typedef struct _wrapped_context_t {
@@ -124,4 +127,5 @@ void call_log(wrapped_context_t *context, char *msg);
 
 DLL_EXPORT void free_wrapped_context(wrapped_context_t *wctx);
 DLL_EXPORT void free_codegen_result(codegen_result_t *codegen_result);
+DLL_EXPORT void *malloc_or_handle(wrapped_context_t *wctx, size_t len);
 #endif

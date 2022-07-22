@@ -105,3 +105,11 @@ void free_wrapped_context(wrapped_context_t *wctx) {
     free(wctx);
   }
 }
+
+void *malloc_or_handle(wrapped_context_t *wctx, size_t len) {
+  void *block = malloc(len);
+  if (block == NULL) {
+    wctx->impl.oom();
+  }
+  return block;
+}

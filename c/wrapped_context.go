@@ -46,6 +46,7 @@ type PendingTransfer interface {
 	NotifyCodeGenerated(code string)
 	NewClient() *wormhole.Client
 	Reference() unsafe.Pointer
+	Malloc(size int) (unsafe.Pointer, error)
 }
 
 // TODO when the original error type contains more information than
@@ -191,4 +192,13 @@ func (wctx *C.wrapped_context_t) NewClient() *wormhole.Client {
 
 func (wctx *C.wrapped_context_t) Reference() unsafe.Pointer {
 	return unsafe.Pointer(wctx)
+}
+
+func (wctx *C.wrapped_context_t) Malloc(size int) (unsafe.Pointer, error) {
+	block := C.malloc_or_handle(wctx, C.size_t(size))
+	if block == C.NULL {
+		return nil, fmt.Errorf("Malloc returned null")
+	}
+
+	return block, nil
 }

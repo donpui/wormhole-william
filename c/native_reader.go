@@ -29,13 +29,17 @@ type native_reader struct {
 	closed       bool
 }
 
-func NewNativeReader(ctx PendingTransfer) ReadSeekCloser {
+func NewNativeReader(ctx PendingTransfer) (ReadSeekCloser, error) {
+	buffer, err := ctx.Malloc(MAX_READ_BUFFER_LEN)
+	if err != nil {
+		return nil, err
+	}
 	return native_reader{
 		context:      ctx,
-		buffer:       (*C.uint8_t)(C.malloc(MAX_READ_BUFFER_LEN)),
+		buffer:       (*C.uint8_t)(buffer),
 		bufferLength: MAX_READ_BUFFER_LEN,
 		closed:       false,
-	}
+	}, nil
 }
 
 func (r native_reader) Close() error {
