@@ -64,7 +64,7 @@ func sendCommand() *cobra.Command {
 	return &cmd
 }
 
-func newClient() wormhole.Client {
+func newClient(turnOnDilate bool) wormhole.Client {
 	if showQRCode && codeLen == 0 {
 		codeLen = 4
 	}
@@ -74,7 +74,7 @@ func newClient() wormhole.Client {
 		RendezvousURL:             relayURL,
 		TransitRelayURL:           transitHelper,
 		PassPhraseComponentLength: codeLen,
-		CanDilate:                 false,
+		CanDilate:                 turnOnDilate,
 	}
 
 	if verify {
@@ -120,7 +120,8 @@ func sendFile(filename string) {
 		bail("Failed to open %s: %s", filename, err)
 	}
 
-	c := newClient()
+	turnOnDilate := false
+	c := newClient(turnOnDilate)
 
 	ctx := context.Background()
 
@@ -199,7 +200,8 @@ func sendDir(dirpath string) {
 		return nil
 	})
 
-	c := newClient()
+	turnOnDilate := false
+	c := newClient(turnOnDilate)
 
 	ctx := context.Background()
 	code, status, err := c.SendDirectory(ctx, dirname, entries, disableListener, wormhole.WithCode(codeFlag))
@@ -219,7 +221,8 @@ func sendDir(dirpath string) {
 }
 
 func sendText() {
-	c := newClient()
+	turnOnDilate := false
+	c := newClient(turnOnDilate)
 
 	var msg string
 	if sendTextFlag == "-" {

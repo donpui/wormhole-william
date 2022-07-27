@@ -39,7 +39,8 @@ func recvCommand() *cobra.Command {
 func recvAction(cmd *cobra.Command, args []string) {
 	var (
 		code string
-		c    = newClient()
+		turnOnDilate = false
+		c    = newClient(turnOnDilate)
 		ctx  = context.Background()
 	)
 
