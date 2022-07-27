@@ -62,14 +62,23 @@ func (c *Client) Receive(ctx context.Context, code string, disableListener bool,
 		return nil, err
 	}
 
-	err = clientProto.WriteVersion(ctx)
+	err = clientProto.WriteVersion(ctx, c.CanDilate)
 	if err != nil {
 		return nil, err
 	}
 
-	_, err = clientProto.ReadVersion()
+	versionMsg, err := clientProto.ReadVersion()
 	if err != nil {
 		return nil, err
+	}
+
+	// handle dilation version negotiation
+	if c.CanDilate {
+		if clientProto.areBothSidesDilationCapable(versionMsg.CanDilate) {
+			clientProto.dilation.state = DilationPossible
+		} else {
+			clientProto.dilation.state = DilationImpossible
+		}
 	}
 
 	if c.VerifierOk != nil {

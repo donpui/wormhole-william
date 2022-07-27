@@ -116,16 +116,24 @@ func (c *Client) SendTextMsg(ctx context.Context, rc *rendezvous.Client, sideID 
 			return
 		}
 
-		err = clientProto.WriteVersion(ctx)
+		err = clientProto.WriteVersion(ctx, c.CanDilate)
 		if err != nil {
 			sendErr(err)
 			return
 		}
 
-		_, err = clientProto.ReadVersion()
+		versionMsg, err := clientProto.ReadVersion()
 		if err != nil {
 			sendErr(err)
 			return
+		}
+
+		if c.CanDilate {
+			if clientProto.areBothSidesDilationCapable(versionMsg.CanDilate) {
+				clientProto.dilation.state = DilationPossible
+			} else {
+				clientProto.dilation.state = DilationImpossible
+			}
 		}
 
 		if c.VerifierOk != nil {
@@ -275,17 +283,26 @@ func (c *Client) sendFileDirectory(ctx context.Context, offer *offerMsg, r io.Re
 			return
 		}
 
-		err = clientProto.WriteVersion(ctx)
+		err = clientProto.WriteVersion(ctx, c.CanDilate)
 		if err != nil {
 			sendErr(err)
 			return
 		}
 
-		_, err = clientProto.ReadVersion()
+		versionMsg, err := clientProto.ReadVersion()
 		if err != nil {
 			sendErr(err)
 			return
 		}
+
+		if c.CanDilate {
+			if clientProto.areBothSidesDilationCapable(versionMsg.CanDilate) {
+				clientProto.dilation.state = DilationPossible
+			} else {
+				clientProto.dilation.state = DilationImpossible
+			}
+		}
+
 		if c.VerifierOk != nil {
 			verifier, err := clientProto.Verifier()
 			if err != nil {

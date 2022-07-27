@@ -52,6 +52,10 @@ type Client struct {
 	// of band mechanism before proceeding with the file transmission.
 	// If VerifierOk returns false the transmission will be aborted.
 	VerifierOk func(verifier string) bool
+
+	// CanDilate specifies whether this client is capable of using
+	// dilation.
+	CanDilate bool
 }
 
 var (
@@ -445,14 +449,28 @@ func (c *msgCollector) collect(ch <-chan rendezvous.MailboxEvent) {
 }
 
 type clientProtocol struct {
-	sharedKey    []byte
-	phaseCounter int
-	ch           <-chan rendezvous.MailboxEvent
-	rc           *rendezvous.Client
-	spake        *gospake2.SPAKE2
-	sideID       string
-	appID        string
+	sharedKey      []byte
+	phaseCounter   int
+	ch             <-chan rendezvous.MailboxEvent
+	rc             *rendezvous.Client
+	spake          *gospake2.SPAKE2
+	sideID         string
+	appID          string
+	dilation       *dilationProtocol
 }
+
+type dilationProtocol struct {
+	versions        []string
+	state           DilationState
+}
+
+type DilationState int
+
+const (
+	DilationNotNegotiated DilationState = -1
+	DilationImpossible DilationState = iota
+	DilationPossible
+)
 
 func newClientProtocol(ctx context.Context, rc *rendezvous.Client, sideID, appID string) *clientProtocol {
 	recvChan := rc.MsgChan(ctx)
@@ -462,6 +480,10 @@ func newClientProtocol(ctx context.Context, rc *rendezvous.Client, sideID, appID
 		rc:     rc,
 		sideID: sideID,
 		appID:  appID,
+		dilation: &dilationProtocol{
+			versions: []string{"1" },
+			state: DilationNotNegotiated,
+		},
 	}
 }
 
@@ -508,10 +530,12 @@ func (cc *clientProtocol) Verifier() ([]byte, error) {
 	return deriveVerifier(cc.sharedKey), nil
 }
 
-func (cc *clientProtocol) WriteVersion(ctx context.Context) error {
+func (cc *clientProtocol) WriteVersion(ctx context.Context, canDilate bool) error {
 	phase := "version"
+	versions := cc.dilation.versions
+
 	verInfo := genericMessage{
-		AppVersions: &appVersionsMsg{},
+		AppVersions: &appVersionsMsg{ versions },
 	}
 
 	jsonOut, err := json.Marshal(verInfo)
@@ -521,6 +545,22 @@ func (cc *clientProtocol) WriteVersion(ctx context.Context) error {
 
 	err = sendEncryptedMessage(ctx, cc.rc, jsonOut, cc.sharedKey, cc.sideID, phase)
 	return err
+}
+
+func (cc *clientProtocol) areBothSidesDilationCapable(otherSideVersions []string) bool {
+	var ourVersions []string
+	if cc.dilation != nil {
+		ourVersions = cc.dilation.versions
+	}
+	if otherSideVersions != nil {
+		// XXX we need to do a set intersection here but for now
+		// we only have one version
+		if otherSideVersions[0] == ourVersions[0] {
+			return true
+		}
+	}
+
+	return false
 }
 
 func (cc *clientProtocol) ReadVersion() (*appVersionsMsg, error) {
