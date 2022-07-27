@@ -221,6 +221,7 @@ type genericMessage struct {
 }
 
 type appVersionsMsg struct {
+	CanDilate []string `json:can-dilate, omitempty"`
 }
 
 type answerMsg struct {
