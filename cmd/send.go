@@ -74,6 +74,7 @@ func newClient() wormhole.Client {
 		RendezvousURL:             relayURL,
 		TransitRelayURL:           transitHelper,
 		PassPhraseComponentLength: codeLen,
+		CanDilate:                 false,
 	}
 
 	if verify {
