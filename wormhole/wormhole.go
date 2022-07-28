@@ -459,19 +459,6 @@ type clientProtocol struct {
 	dilation       *dilationProtocol
 }
 
-type dilationProtocol struct {
-	versions        []string
-	state           DilationState
-}
-
-type DilationState int
-
-const (
-	DilationNotNegotiated DilationState = -1
-	DilationImpossible DilationState = iota
-	DilationPossible
-)
-
 func newClientProtocol(ctx context.Context, rc *rendezvous.Client, sideID, appID string) *clientProtocol {
 	recvChan := rc.MsgChan(ctx)
 
