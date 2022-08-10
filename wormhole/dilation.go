@@ -30,7 +30,6 @@ const (
 type pleaseMsg struct {
 	ty       string     `json:"type"`
 	side     string     `json:"side"`
-	versions []string   `json:"accepted-versions"`
 }
 
 func genSide() string {
