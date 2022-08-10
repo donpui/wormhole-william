@@ -74,7 +74,7 @@ func newClient(turnOnDilate bool) wormhole.Client {
 		RendezvousURL:             relayURL,
 		TransitRelayURL:           transitHelper,
 		PassPhraseComponentLength: codeLen,
-		CanDilate:                 turnOnDilate,
+		EnableDilation:            turnOnDilate,
 	}
 
 	if verify {

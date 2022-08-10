@@ -53,9 +53,9 @@ type Client struct {
 	// If VerifierOk returns false the transmission will be aborted.
 	VerifierOk func(verifier string) bool
 
-	// CanDilate specifies whether this client is capable of using
+	// EnableDilation specifies whether this client is capable of using
 	// dilation.
-	CanDilate bool
+	EnableDilation bool
 }
 
 var (
@@ -468,18 +468,22 @@ type clientProtocol struct {
 	dilation       *dilationProtocol
 }
 
-func newClientProtocol(ctx context.Context, rc *rendezvous.Client, sideID, appID string) *clientProtocol {
+func newClientProtocol(ctx context.Context, rc *rendezvous.Client, sideID, appID string, enableDilation bool) *clientProtocol {
 	recvChan := rc.MsgChan(ctx)
 
+	var dilationParams *dilationProtocol
+	if enableDilation {
+		dilationParams = &dilationProtocol{
+			versions: []string{"1" },
+			state: DilationNotNegotiated,
+		}
+	}
 	return &clientProtocol{
 		ch:     recvChan,
 		rc:     rc,
 		sideID: sideID,
 		appID:  appID,
-		dilation: &dilationProtocol{
-			versions: []string{"1" },
-			state: DilationNotNegotiated,
-		},
+		dilation: dilationParams,
 	}
 }
 
@@ -546,9 +550,15 @@ func genVersionsPayload(versions []string, abilities []string, appversions *appV
 
 func (cc *clientProtocol) WriteVersion(ctx context.Context, canDilate bool) error {
 	phase := "version"
-	versions := cc.dilation.versions
+	var versions []string
+	var abilities []string
 
-	verInfo := genVersionsPayload(versions, []string{ "direct-tcp-v1", "relay-v1" }, &appVersionsMsg{})
+	if canDilate {
+		versions = cc.dilation.versions
+		abilities = []string{ "direct-tcp-v1", "relay-v1" }
+	}
+
+	verInfo := genVersionsPayload(versions, abilities, &appVersionsMsg{})
 
 	jsonOut, err := json.Marshal(verInfo)
 	if err != nil {
@@ -575,8 +585,8 @@ func (cc *clientProtocol) areBothSidesDilationCapable(otherSideVersions []string
 	return false
 }
 
-func (cc *clientProtocol) ReadVersion() (*appVersionsMsg, error) {
-	var v appVersionsMsg
+func (cc *clientProtocol) ReadVersion() (*versionsMsg, error) {
+	var v versionsMsg
 	err := cc.openAndUnmarshal("version", &v)
 	if err != nil {
 		return nil, err

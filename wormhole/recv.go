@@ -50,7 +50,7 @@ func (c *Client) Receive(ctx context.Context, code string, disableListener bool,
 		return nil, err
 	}
 
-	clientProto := newClientProtocol(ctx, rc, sideID, appID)
+	clientProto := newClientProtocol(ctx, rc, sideID, appID, c.EnableDilation)
 
 	err = clientProto.WritePake(ctx, code)
 	if err != nil {
@@ -62,7 +62,7 @@ func (c *Client) Receive(ctx context.Context, code string, disableListener bool,
 		return nil, err
 	}
 
-	err = clientProto.WriteVersion(ctx, c.CanDilate)
+	err = clientProto.WriteVersion(ctx, c.EnableDilation)
 	if err != nil {
 		return nil, err
 	}
@@ -73,7 +73,7 @@ func (c *Client) Receive(ctx context.Context, code string, disableListener bool,
 	}
 
 	// handle dilation version negotiation
-	if c.CanDilate {
+	if c.EnableDilation {
 		if clientProto.areBothSidesDilationCapable(versionMsg.CanDilate) {
 			clientProto.dilation.state = DilationPossible
 		} else {

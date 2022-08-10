@@ -80,7 +80,7 @@ func (c *Client) CreateOrAttachMailbox(ctx context.Context, sideID string, appID
 }
 
 func (c *Client) SendTextMsg(ctx context.Context, rc *rendezvous.Client, sideID string, appID string, code string, msg string, options *transferOptions) (chan SendResult, error) {
-	clientProto := newClientProtocol(ctx, rc, sideID, appID)
+	clientProto := newClientProtocol(ctx, rc, sideID, appID, c.EnableDilation)
 
 	ch := make(chan SendResult, 1)
 	go func() {
@@ -116,7 +116,7 @@ func (c *Client) SendTextMsg(ctx context.Context, rc *rendezvous.Client, sideID 
 			return
 		}
 
-		err = clientProto.WriteVersion(ctx, c.CanDilate)
+		err = clientProto.WriteVersion(ctx, c.EnableDilation)
 		if err != nil {
 			sendErr(err)
 			return
@@ -128,7 +128,7 @@ func (c *Client) SendTextMsg(ctx context.Context, rc *rendezvous.Client, sideID 
 			return
 		}
 
-		if c.CanDilate {
+		if c.EnableDilation {
 			if clientProto.areBothSidesDilationCapable(versionMsg.CanDilate) {
 				clientProto.dilation.state = DilationPossible
 			} else {
@@ -246,7 +246,7 @@ func (c *Client) sendFileDirectory(ctx context.Context, offer *offerMsg, r io.Re
 		}
 	}
 
-	clientProto := newClientProtocol(ctx, rc, sideID, appID)
+	clientProto := newClientProtocol(ctx, rc, sideID, appID, c.EnableDilation)
 
 	ch := make(chan SendResult, 1)
 	go func() {
@@ -283,7 +283,7 @@ func (c *Client) sendFileDirectory(ctx context.Context, offer *offerMsg, r io.Re
 			return
 		}
 
-		err = clientProto.WriteVersion(ctx, c.CanDilate)
+		err = clientProto.WriteVersion(ctx, c.EnableDilation)
 		if err != nil {
 			sendErr(err)
 			return
@@ -295,7 +295,7 @@ func (c *Client) sendFileDirectory(ctx context.Context, offer *offerMsg, r io.Re
 			return
 		}
 
-		if c.CanDilate {
+		if c.EnableDilation {
 			if clientProto.areBothSidesDilationCapable(versionMsg.CanDilate) {
 				clientProto.dilation.state = DilationPossible
 			} else {
