@@ -220,12 +220,21 @@ type genericMessage struct {
 	Offer       *offerMsg       `json:"offer,omitempty"`
 	Answer      *answerMsg      `json:"answer,omitempty"`
 	Transit     *transitMsg     `json:"transit,omitempty"`
-	AppVersions *appVersionsMsg `json:"app_versions,omitempty"`
 	Error       *string         `json:"error,omitempty"`
 }
 
+// payload of versions message
+type versionsMsg struct {
+	CanDilate         []string `json:"can-dilate, omitempty"`
+	DilationAbilities []dilationAbility `json:"dilation-abilties"`
+	AppVersions       *appVersionsMsg `json:"app_versions,omitempty"`
+}
+
+type dilationAbility struct {
+	Type string `json:"type"`
+}
+
 type appVersionsMsg struct {
-	CanDilate []string `json:can-dilate, omitempty"`
 }
 
 type answerMsg struct {
@@ -517,13 +526,29 @@ func (cc *clientProtocol) Verifier() ([]byte, error) {
 	return deriveVerifier(cc.sharedKey), nil
 }
 
+func buildDilationAbilities(dilationAbilities []string) []dilationAbility {
+	abilities := []dilationAbility { }
+
+	for _, ability := range(dilationAbilities) {
+		abilities = append(abilities, dilationAbility{ Type: ability })
+	}
+
+	return abilities
+}
+
+func genVersionsPayload(versions []string, abilities []string, appversions *appVersionsMsg) versionsMsg {
+	return versionsMsg{
+		CanDilate: versions,
+		DilationAbilities: buildDilationAbilities(abilities),
+		AppVersions: appversions,
+	}
+}
+
 func (cc *clientProtocol) WriteVersion(ctx context.Context, canDilate bool) error {
 	phase := "version"
 	versions := cc.dilation.versions
 
-	verInfo := genericMessage{
-		AppVersions: &appVersionsMsg{ versions },
-	}
+	verInfo := genVersionsPayload(versions, []string{ "direct-tcp-v1", "relay-v1" }, &appVersionsMsg{})
 
 	jsonOut, err := json.Marshal(verInfo)
 	if err != nil {
