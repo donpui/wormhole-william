@@ -469,7 +469,10 @@ type clientProtocol struct {
 }
 
 func newClientProtocol(ctx context.Context, rc *rendezvous.Client, sideID, appID string, enableDilation bool) *clientProtocol {
-	recvChan := rc.MsgChan(ctx)
+	var recvChan  <-chan rendezvous.MailboxEvent
+	if rc != nil {
+		recvChan = rc.MsgChan(ctx)
+	}
 
 	var dilationParams *dilationProtocol
 	if enableDilation {
