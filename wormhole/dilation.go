@@ -2,6 +2,7 @@ package wormhole
 
 import (
 	"errors"
+	"encoding/json"
 	"github.com/psanford/wormhole-william/internal/crypto"
 )
 
@@ -28,7 +29,8 @@ const (
 )
 
 type pleaseMsg struct {
-	ty       string     `json:"type"`
+	// because type is a reserved keyword
+	tipe     string     `json:"type"`
 	side     string     `json:"side"`
 }
 
@@ -57,6 +59,19 @@ func (d *dilationProtocol) chooseRole(otherSide string) error {
 
 // like sending a message via mailbox, but instead of numbered phases,
 // it will use phase names like "dilate-1", "dilate-2" .. etc
-func (d *dilationProtocol) sendDilateMsg() {
-	
+func (d *dilationProtocol) genDilateMsg() []byte {
+	return nil
 }
+
+// once dilation capability is confirmed for both the sides,
+// send the "please" message. "please" is how we learn about the
+// other side's "side".
+func (d *dilationProtocol) genPleaseMsg() ([]byte, error) {
+	please := pleaseMsg{
+		tipe: "please", // how wasteful! Can't we autogenerate this?
+		side: d.side,
+	}
+	return json.Marshal(please)
+}
+
+// sans-io approach: functional core, imperative shell
