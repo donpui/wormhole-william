@@ -36,3 +36,16 @@ func TestDilationCapabilityNegotiation(t *testing.T) {
 	}
 }
 
+func TestDilationRole(t *testing.T) {
+	side1 := "10000"
+	d1 := &dilationProtocol{
+		versions: []string{"1"},
+		side: side1,
+	}
+
+	side2 := "10001"
+	d1.chooseRole(side2)
+	if d1.role != Follower {
+		t.Fatalf("side %s should be leader and side %s should be follower", side1, side2)
+	}
+}
