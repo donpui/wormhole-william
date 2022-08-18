@@ -55,6 +55,18 @@ type pleaseMsg struct {
 	// good thing to re-instate it in the code.
 }
 
+type hints struct {
+	tipe      string  `json:"type"`
+	priority  float32 `json:"priority"`
+	hostname  string  `json:"hostname"`
+	port      int     `json:"port"`
+}
+
+type connectionHintsMsg struct {
+	tipe    string    `json:"type"`
+	hints   []hints   `json:"connection-hints"`
+}
+
 type dilateAddMsg struct {
 	tipe  string `json:"type"`  // "type": "add"
 	phase string `json:"phase"` // "phase": "dilate-${n}"
