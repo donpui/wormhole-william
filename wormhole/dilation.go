@@ -20,11 +20,14 @@ type dilationProtocol struct {
 	phaseMu         sync.Mutex
 	// XXX: The type should have a channel to receive input events
 	// and messages from I/O shell and a channel to send output
-	// events and messages. The timeouts etc are handled in the
-	// I/O layer and conveyed to the core via events. Core would
-	// produce output events in response. In short, it is a state
-	// machine that produces new state and an output in response
-	// to inputs.
+	// events and messages. These output events can be thought of
+	// as commands on what the I/O layer needs to do. The timeouts
+	// etc are handled in the I/O layer and conveyed to the core
+	// via events. Core would produce output events or commands in
+	// response. Some of these events/commands may also carry a
+	// payload that the command needs to act on. In short, it is a
+	// state machine that produces new state and an output in
+	// response to inputs.
 }
 
 type DilationState int
