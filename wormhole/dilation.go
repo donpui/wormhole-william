@@ -16,8 +16,6 @@ type dilationProtocol struct {
 	stateMu         sync.Mutex
 	role            Role
 	side            string
-	phase           int
-	phaseMu         sync.Mutex
 	// XXX: The type should have a channel to receive input events
 	// and messages from I/O shell and a channel to send output
 	// events and messages. These output events can be thought of
@@ -99,20 +97,15 @@ func (d *dilationProtocol) chooseRole(otherSide string) error {
 
 // like sending a message via mailbox, but instead of numbered phases,
 // it will use phase names like "dilate-1", "dilate-2" .. etc
-func (d *dilationProtocol) genDilateMsg(payload []byte) ([]byte, error) {
+func genDilateMsg(payload []byte, phase int) ([]byte, error) {
 	// everytime, we use the existing "phase" to compute the
-	// "dilation-$n" field and then increment it after acquiring
-	// the lock.  This is the only function that modifies the
-	// dilation phase.
-	d.phaseMu.Lock()
-	defer d.phaseMu.Unlock()
+	// "dilation-$n" field. Maintaining the phase needs to happen
+	// outside the core as it is state and so has side effects.
 
 	var msg dilateAddMsg
 	msg.tipe = "add"
-	msg.phase = fmt.Sprintf("dilate-%d", d.phase)
+	msg.phase = fmt.Sprintf("dilate-%d", phase)
 	msg.body = hex.EncodeToString(payload)
-
-	d.phase += 1
 
 	return json.Marshal(msg)
 }
