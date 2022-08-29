@@ -110,6 +110,10 @@ func genDilateMsg(payload []byte, phase int) ([]byte, error) {
 	return json.Marshal(msg)
 }
 
+func (d *dilationProtocol) sendDilationMsg() {
+	
+}
+
 // once dilation capability is confirmed for both the sides,
 // send the "please" message. "please" is how we learn about the
 // other side's "side".
@@ -121,4 +125,26 @@ func (d *dilationProtocol) genPleaseMsg() ([]byte, error) {
 	return json.Marshal(please)
 }
 
-// sans-io approach: functional core, imperative shell
+// receives decrypted dilate-$n payloads (but still in json)
+func (d *dilationProtocol) receiveDilationMsg(plaintext []byte) error {
+	var result map[string]interface{}
+
+	err := json.Unmarshal(plaintext, &result)
+	if err != nil {
+		return err
+	}
+
+	// the plaintext message could be either a "please",
+	// "connection-hints", "reconnect" or "reconnecting" message.
+	switch result["type"] {
+	case "please": // XXX: handle "please" msg
+	case "connection-hints": // XXX: handle "connection-hints" msg
+	case "reconnect": // XXX: handle "reconnect" msg
+	case "reconnecting": // XXX: handle "reconnecting" msg
+	default:
+		// XXX: unknown dilation message
+	}
+
+	return nil
+}
+
