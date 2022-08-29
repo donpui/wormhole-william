@@ -18,6 +18,9 @@ type dilationProtocol struct {
 	managerStateMu  sync.Mutex
 	role            Role
 	side            string
+	// The code mostly sans-io approach: functional core,
+	// imperative shell.
+	//
 	// XXX: The type should have a channel to receive input events
 	// and messages from I/O shell and a channel to send output
 	// events and messages. These output events can be thought of
