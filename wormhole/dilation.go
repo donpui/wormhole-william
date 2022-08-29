@@ -14,6 +14,8 @@ type dilationProtocol struct {
 	versions        []string
 	state           DilationState
 	stateMu         sync.Mutex
+	managerState    ManagerState
+	managerStateMu  sync.Mutex
 	role            Role
 	side            string
 	// XXX: The type should have a channel to receive input events
@@ -30,11 +32,24 @@ type dilationProtocol struct {
 
 type DilationState int
 type Role string
+type ManagerState int
 
 const (
 	DilationNotNegotiated DilationState = -1
 	DilationImpossible DilationState = iota
 	DilationPossible
+)
+
+const (
+	ManagerStateWaiting = iota
+	ManagerStateWanting
+	ManagerStateConnecting
+	ManagerStateConnected
+	ManagerStateFlushing
+	ManagerStateLonely
+	ManagerStateAbandoning
+	ManagerStateStopping
+	ManagerStateStopped
 )
 
 const (
@@ -138,6 +153,24 @@ func (d *dilationProtocol) receiveDilationMsg(plaintext []byte) error {
 	// "connection-hints", "reconnect" or "reconnecting" message.
 	switch result["type"] {
 	case "please": // XXX: handle "please" msg
+		// if we are in WANTING state and get the "please"
+		// message, then enter "CONNECTING" state and do
+		// "choose_role", "start_connecting_ignore_message" it
+		// also depends on the role (i.e. whether we are
+		// leader or follower).
+		if d.role == Leader {
+			switch d.managerState {
+			case ManagerStateWanting:
+				// current state is WANTING and we got
+				// please as input. More to a new state
+				d.managerStateMu.Lock()
+				d.managerState = ManagerStateConnecting
+				d.managerStateMu.Unlock()
+				// XXX: generate events: choose_role, start_connecting
+			default:
+				// ignore the rest, continue in the same state.
+			}
+		}
 	case "connection-hints": // XXX: handle "connection-hints" msg
 	case "reconnect": // XXX: handle "reconnect" msg
 	case "reconnecting": // XXX: handle "reconnecting" msg
