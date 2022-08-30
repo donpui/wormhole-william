@@ -131,6 +131,9 @@ func (c *Client) SendTextMsg(ctx context.Context, rc *rendezvous.Client, sideID 
 		if c.EnableDilation {
 			if clientProto.areBothSidesDilationCapable(versionMsg.CanDilate) {
 				clientProto.dilation.state = DilationPossible
+				// manager moves from waiting to
+				// wanting and sends please message.
+				clientProto.dilation.managerInputEv <- ManagerInputEventStart
 			} else {
 				clientProto.dilation.state = DilationImpossible
 			}
