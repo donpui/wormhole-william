@@ -34,6 +34,7 @@ func NewPromise(fn PromiseFn) *Promise {
 		return nil
 	})
 	jsPromise := js.Global().Get("Promise").New(constructor)
+	constructor.Release()
 	return &Promise{
 		jsValue: jsPromise,
 	}
