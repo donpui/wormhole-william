@@ -157,6 +157,43 @@ func (d *dilationProtocol) genPleaseMsg() ([]byte, error) {
 	return json.Marshal(please)
 }
 
+// State -> a -> (State, b) state machines take the current state, an
+// input of type a and gives a new state and a new value of type b.
+// In our case, the state is in the type dilationProtocol. Input is a
+// bytestring. New state would mutate the current state in d. Output
+// would be a bunch of functions that operate on input.
+//
+// XXX: We would run this state machine in a go routine? The input
+// could come via a channel then?
+//
+// XXX: how do we represent the output?
+func (d *dilationProtocol) managerStateMachine() {
+	event :=  <-d.managerInputEv
+	switch event {
+	case ManagerInputEventStart:
+		// if current state is WAITING, then go to WANTING and
+		// send "please" to peer.
+		switch d.managerState {
+		case ManagerStateWaiting:
+			d.managerStateMu.Lock()
+			d.managerState = ManagerStateWanting
+			d.managerStateMu.Unlock()
+			// XXX: send please message
+		default:
+			// ignore the rest of the events in this state
+		}
+	case ManagerInputEventRxPlease:
+	case ManagerInputEventConnectionMade:
+	case ManagerInputEventRxReconnecting:
+	case ManagerInputEventRxReconnect:
+	case ManagerInputEventConnectionLostLeader:
+	case ManagerInputEventConnectionLostFollower:
+	case ManagerInputEventRxHints:
+	case ManagerInputEventStop:
+	default:
+	}
+}
+
 // receives decrypted dilate-$n payloads (but still in json)
 func (d *dilationProtocol) receiveDilationMsg(plaintext []byte) error {
 	var result map[string]interface{}

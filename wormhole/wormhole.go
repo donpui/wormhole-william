@@ -479,6 +479,7 @@ func newClientProtocol(ctx context.Context, rc *rendezvous.Client, sideID, appID
 		dilationParams = &dilationProtocol{
 			versions: []string{"1" },
 			state: DilationNotNegotiated,
+			managerState: ManagerStateWaiting,
 		}
 	}
 	return &clientProtocol{
