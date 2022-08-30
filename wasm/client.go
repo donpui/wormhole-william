@@ -18,7 +18,7 @@ import (
 type ClientMap = map[uintptr]*wormhole.Client
 
 // TODO: automate use of `-ld -X` with env vars
-const DEFAULT_APP_ID = "myFileTransfer"
+const DEFAULT_APP_ID = "lothar.com/wormhole/text-or-file-xfer"
 const DEFAULT_RENDEZVOUS_URL = "ws://localhost:4000/v1"
 const DEFAULT_TRANSIT_RELAY_URL = "ws://localhost:4002"
 const DEFAULT_PASSPHRASE_COMPONENT_LENGTH = 2
