@@ -16,6 +16,7 @@ type dilationProtocol struct {
 	stateMu         sync.Mutex
 	managerState    ManagerState
 	managerStateMu  sync.Mutex
+	managerInputEv  chan ManagerInputEvent
 	role            Role
 	side            string
 	// The code mostly sans-io approach: functional core,
@@ -36,6 +37,7 @@ type dilationProtocol struct {
 type DilationState int
 type Role string
 type ManagerState int
+type ManagerInputEvent int
 
 const (
 	DilationNotNegotiated DilationState = -1
@@ -53,6 +55,18 @@ const (
 	ManagerStateAbandoning
 	ManagerStateStopping
 	ManagerStateStopped
+)
+
+const (
+	ManagerInputEventStart = iota
+	ManagerInputEventRxPlease
+	ManagerInputEventConnectionMade
+	ManagerInputEventRxReconnecting
+	ManagerInputEventRxReconnect
+	ManagerInputEventConnectionLostLeader
+	ManagerInputEventConnectionLostFollower
+	ManagerInputEventRxHints
+	ManagerInputEventStop
 )
 
 const (
