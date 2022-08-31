@@ -33,6 +33,8 @@ const (
 	ERR_WRONG_CODE = "decrypt message failed"
 	// use cases: (1) cannot connect to mailbox/relay
 	ERR_CONNECTION_REFUSED = "connect: connection refused"
+	// use cases: (1) receiver enters an incorrect nameplate
+	ERR_INVALID_NAMEPLATE = "Nameplate is unclaimed"
 )
 
 const (

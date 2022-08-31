@@ -45,6 +45,23 @@ func (c *Client) Receive(ctx context.Context, code string, disableListener bool,
 		return nil, err
 	}
 
+	nameplates, err := rc.ListNameplates(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	nameplateFound := false
+	for _, claimedNameplate := range nameplates {
+		if nameplate == claimedNameplate {
+			nameplateFound = true
+			break
+		}
+	}
+
+	if !nameplateFound {
+		return nil, fmt.Errorf("Nameplate is unclaimed: %s", nameplate)
+	}
+
 	err = rc.AttachMailbox(ctx, nameplate)
 	if err != nil {
 		return nil, err
