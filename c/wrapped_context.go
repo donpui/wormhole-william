@@ -16,12 +16,23 @@ import (
 import "C"
 
 const (
-	ERR_CONTEXT_CANCELLED    = "context canceled"
-	ERR_BROKEN_PIPE          = "write: broken pipe"
-	ERR_UNEXPECTED_EOF       = "unexpected EOF"
+	// use cases: (1) sender cancels from frontend, Sender gets error
+	ERR_CONTEXT_CANCELLED = "context canceled"
+	// use cases: (1) receiver terminates transfer, Sender gets error; (2) network iterruption?
+	ERR_BROKEN_PIPE = "write: broken pipe"
+	// use cases: (1) sender terminates transfer, Receiver gets error; (2) network iterruption?
+	ERR_UNEXPECTED_EOF = "unexpected EOF"
+	// use cases: (1) receiver (desktop) terminates transfer, sender (mobile) gets error
+	ERR_EOF = "EOF"
+	// use cases: (1) receiver (desktop) terminates transfer quickly after starting, sender (mobile) gets error
+	ERR_RESET_BY_PEER = "connection reset by peer"
+	// use cases: (1) receiver rejects offer, Sender and Receiver get error; (2) receiver fails to overwrite file, sender get error
 	ERR_TRANSFER_REJECTED    = "transfer rejected"
 	ERR_FAILED_TO_GET_READER = "failed to get reader"
-	ERR_WRONG_CODE           = "decrypt message failed"
+	// use cases: (1) receiver enter wrong code, Sender and Receiver get error
+	ERR_WRONG_CODE = "decrypt message failed"
+	// use cases: (1) cannot connect to mailbox/relay
+	ERR_CONNECTION_REFUSED = "connect: connection refused"
 )
 
 const (
@@ -53,24 +64,31 @@ type PendingTransfer interface {
 // the error message, refactor this
 func extractErrorCode(fallback C.result_type_t, errorMessage string) C.result_type_t {
 	if fallback == C.SendFileError {
-		if strings.Contains(errorMessage, ERR_BROKEN_PIPE) ||
-			strings.Contains(errorMessage, ERR_CONTEXT_CANCELLED) {
+		if strings.Contains(errorMessage, ERR_CONTEXT_CANCELLED) ||
+			strings.Contains(errorMessage, ERR_CONNECTION_REFUSED) {
 			return C.TransferCancelled
+		} else if strings.Contains(errorMessage, ERR_BROKEN_PIPE) ||
+			strings.Contains(errorMessage, ERR_EOF) ||
+			strings.Contains(errorMessage, ERR_RESET_BY_PEER) {
+			return C.TransferCancelledByReceiver
 		} else if strings.Contains(errorMessage, ERR_WRONG_CODE) {
 			return C.WrongCode
 		}
 	} else if fallback == C.ReceiveFileError {
-		if strings.Contains(errorMessage, ERR_UNEXPECTED_EOF) ||
-			strings.Contains(errorMessage, ERR_CONTEXT_CANCELLED) ||
-			strings.Contains(errorMessage, ERR_FAILED_TO_GET_READER) {
+		if strings.Contains(errorMessage, ERR_CONTEXT_CANCELLED) ||
+			strings.Contains(errorMessage, ERR_FAILED_TO_GET_READER) ||
+			strings.Contains(errorMessage, ERR_CONNECTION_REFUSED) {
 			return C.TransferCancelled
-		} else if strings.Contains(errorMessage, ERR_WRONG_CODE) {
-			return C.WrongCode
+		} else if strings.Contains(errorMessage, ERR_UNEXPECTED_EOF) {
+			return C.TransferCancelledBySender
 		}
 	}
 
+	// Common errors
 	if strings.Contains(errorMessage, ERR_TRANSFER_REJECTED) {
 		return C.TransferRejected
+	} else if strings.Contains(errorMessage, ERR_WRONG_CODE) {
+		return C.WrongCode
 	}
 
 	return fallback

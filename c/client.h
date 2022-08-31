@@ -34,6 +34,8 @@ typedef enum {
   TransferRejected = 5,
   TransferCancelled = 6,
   WrongCode = 7,
+  TransferCancelledByReceiver = 8,
+  TransferCancelledBySender = 9,
 } result_type_t;
 
 typedef struct {
