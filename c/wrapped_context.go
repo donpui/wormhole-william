@@ -83,6 +83,8 @@ func extractErrorCode(fallback C.result_type_t, errorMessage string) C.result_ty
 			return C.TransferCancelled
 		} else if strings.Contains(errorMessage, ERR_UNEXPECTED_EOF) {
 			return C.TransferCancelledBySender
+		} else if strings.Contains(errorMessage, ERR_INVALID_NAMEPLATE) {
+			return C.WrongCode
 		}
 	}
 
