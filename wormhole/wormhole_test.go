@@ -581,11 +581,6 @@ func TestPendingRecvCancelable(t *testing.T) {
 			defer cancel()
 
 			code := "87-firetrap-fallacy"
-			resultCh := make(chan error, 1)
-			go func() {
-				_, err := c0.Receive(childCtx, code, false)
-				resultCh <- err
-			}()
 
 			// wait to see mailbox has been allocated, and then
 			// wait to see PAKE message from receiver
@@ -619,6 +614,12 @@ func TestPendingRecvCancelable(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+
+			resultCh := make(chan error, 1)
+			go func() {
+				_, err := c0.Receive(childCtx, code, false)
+				resultCh <- err
+			}()
 
 			msgs := rc.MsgChan(ctx)
 
@@ -1226,5 +1227,33 @@ func TestWormholeFileTransportSendRecvViaWSRelayServer(t *testing.T) {
 	result := <-resultCh
 	if !result.OK {
 		t.Fatalf("Expected ok result but got: %+v", result)
+	}
+}
+
+func TestReceiveWithoutSender(t *testing.T) {
+	rs := rendezvousservertest.NewServerLegacy()
+	defer rs.Close()
+
+	url := rs.WebSocketURL()
+
+	for relayProtocol, newRelayServer := range relayServerConstructors {
+		t.Run(fmt.Sprintf("With %s relay server", relayProtocol), func(t *testing.T) {
+			relayServer := newRelayServer()
+
+			c0 := Client{
+				RendezvousURL:   url,
+				TransitRelayURL: relayServer.url.String(),
+			}
+
+			_, err := c0.Receive(context.Background(), "666-fireball-fallacy", false)
+
+			if err == nil {
+				t.Error("Receiver should not be able to claim the nameplate")
+			}
+
+			if err.Error() != "Nameplate is unclaimed: 666" {
+				t.Error(fmt.Sprintf("Unexpected error: %s", err.Error()))
+			}
+		})
 	}
 }
