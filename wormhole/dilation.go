@@ -222,11 +222,14 @@ func (d *dilationProtocol) managerStateMachine() []ManagerOutputEvent {
 	case ManagerInputEventConnectionLostFollower:
 	case ManagerInputEventRxHints:
 		switch d.managerState {
-		case ManagerStateWanting:
+		case ManagerStateWanting, ManagerStateConnected, ManagerStateAbandoning, ManagerStateFlushing, ManagerStateLonely, ManagerStateStopping:
 			// do nothing, stay in WANTING.
 			//
 			// XXX we can as well omit this case statement
 			// but leaving it here for now.
+			return []ManagerOutputEvent{}
+		case ManagerStateConnecting:
+			return []ManagerOutputEvent{ ManagerOutputEventUseHints }
 		default:
 		}
 	case ManagerInputEventStop:
