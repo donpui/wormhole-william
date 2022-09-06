@@ -224,6 +224,24 @@ func (d *dilationProtocol) managerStateMachine() []ManagerOutputEvent {
 		}
 	case ManagerInputEventRxReconnecting:
 	case ManagerInputEventRxReconnect:
+		switch d.managerState {
+		case ManagerStateConnected:
+			d.toState(ManagerStateAbandoning)
+			return []ManagerOutputEvent{ManagerOutputEventAbandonConnection}
+		case ManagerStateConnecting:
+			return []ManagerOutputEvent{
+				ManagerOutputEventStopConnecting,
+				ManagerOutputEventSendReconnecting,
+				ManagerOutputEventStartConnecting,
+			}
+		case ManagerStateLonely:
+			d.toState(ManagerStateConnecting)
+			return []ManagerOutputEvent{
+				ManagerOutputEventSendReconnecting,
+				ManagerOutputEventStartConnecting,
+			}
+		default:
+		}
 	case ManagerInputEventConnectionLostLeader:
 	case ManagerInputEventConnectionLostFollower:
 	case ManagerInputEventRxHints:
