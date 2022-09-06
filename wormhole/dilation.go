@@ -1,24 +1,24 @@
 package wormhole
 
 import (
-	"errors"
-	"encoding/json"
 	"encoding/hex"
-	"sync"
+	"encoding/json"
+	"errors"
 	"fmt"
+	"sync"
 
 	"github.com/psanford/wormhole-william/internal/crypto"
 )
 
 type dilationProtocol struct {
-	versions        []string
-	state           DilationState
-	stateMu         sync.Mutex
-	managerState    ManagerState
-	managerStateMu  sync.Mutex
-	managerInputEv  chan ManagerInputEvent
-	role            Role
-	side            string
+	versions       []string
+	state          DilationState
+	stateMu        sync.Mutex
+	managerState   ManagerState
+	managerStateMu sync.Mutex
+	managerInputEv chan ManagerInputEvent
+	role           Role
+	side           string
 	// The code mostly sans-io approach: functional core,
 	// imperative shell.
 	//
@@ -42,7 +42,7 @@ type ManagerOutputEvent int
 
 const (
 	DilationNotNegotiated DilationState = -1
-	DilationImpossible DilationState = iota
+	DilationImpossible    DilationState = iota
 	DilationPossible
 )
 
@@ -85,14 +85,14 @@ const (
 )
 
 const (
-	Leader Role = "Leader"
+	Leader   Role = "Leader"
 	Follower Role = "Follower"
 )
 
 type pleaseMsg struct {
 	// because type is a reserved keyword
-	tipe     string     `json:"type"`
-	side     string     `json:"side"`
+	tipe string `json:"type"`
+	side string `json:"side"`
 	// XXX: docs rightly talks about a "use-version" field that
 	// would calculate the version to use based on the earlier
 	// "can-dilate" field in the versions message. But in the
@@ -101,15 +101,15 @@ type pleaseMsg struct {
 }
 
 type hints struct {
-	tipe      string  `json:"type"`
-	priority  float32 `json:"priority"`
-	hostname  string  `json:"hostname"`
-	port      int     `json:"port"`
+	tipe     string  `json:"type"`
+	priority float32 `json:"priority"`
+	hostname string  `json:"hostname"`
+	port     int     `json:"port"`
 }
 
 type connectionHintsMsg struct {
-	tipe    string    `json:"type"`
-	hints   []hints   `json:"connection-hints"`
+	tipe  string  `json:"type"`
+	hints []hints `json:"connection-hints"`
 }
 
 type dilateAddMsg struct {
@@ -126,8 +126,8 @@ func genSide() string {
 func InitDilation() *dilationProtocol {
 	mySide := genSide()
 	return &dilationProtocol{
-		versions: []string{ "1" },
-		side: mySide,
+		versions: []string{"1"},
+		side:     mySide,
 	}
 }
 
@@ -158,7 +158,7 @@ func genDilationMsg(payload []byte, phase int) ([]byte, error) {
 }
 
 func (d *dilationProtocol) sendDilationMsg() {
-	
+
 }
 
 // once dilation capability is confirmed for both the sides,
@@ -189,7 +189,7 @@ func (d *dilationProtocol) toState(newState ManagerState) {
 	d.managerState = newState
 }
 func (d *dilationProtocol) managerStateMachine() []ManagerOutputEvent {
-	event :=  <-d.managerInputEv
+	event := <-d.managerInputEv
 	switch event {
 	case ManagerInputEventStart:
 		// if current state is WAITING, then go to WANTING and
@@ -198,7 +198,7 @@ func (d *dilationProtocol) managerStateMachine() []ManagerOutputEvent {
 		case ManagerStateWaiting:
 			d.toState(ManagerStateWanting)
 			// XXX: send please message
-			return []ManagerOutputEvent{ ManagerOutputEventSendPlease }
+			return []ManagerOutputEvent{ManagerOutputEventSendPlease}
 		default:
 			// ignore the rest of the events in this state
 		}
@@ -229,20 +229,20 @@ func (d *dilationProtocol) managerStateMachine() []ManagerOutputEvent {
 			// but leaving it here for now.
 			return []ManagerOutputEvent{}
 		case ManagerStateConnecting:
-			return []ManagerOutputEvent{ ManagerOutputEventUseHints }
+			return []ManagerOutputEvent{ManagerOutputEventUseHints}
 		default:
 		}
 	case ManagerInputEventStop:
 		switch d.managerState {
 		case ManagerStateWaiting, ManagerStateWanting, ManagerStateLonely, ManagerStateFlushing:
 			d.toState(ManagerStateStopped)
-			return []ManagerOutputEvent{ ManagerOutputEventNotifyStopped }
+			return []ManagerOutputEvent{ManagerOutputEventNotifyStopped}
 		case ManagerStateConnecting:
 			d.toState(ManagerStateStopped)
-			return []ManagerOutputEvent { ManagerOutputEventStopConnecting, ManagerOutputEventNotifyStopped }
+			return []ManagerOutputEvent{ManagerOutputEventStopConnecting, ManagerOutputEventNotifyStopped}
 		case ManagerStateConnected:
 			d.toState(ManagerStateStopping)
-			return []ManagerOutputEvent { ManagerOutputEventAbandonConnection }
+			return []ManagerOutputEvent{ManagerOutputEventAbandonConnection}
 		case ManagerStateAbandoning:
 			d.toState(ManagerStateStopping)
 			return []ManagerOutputEvent{}
@@ -293,4 +293,3 @@ func (d *dilationProtocol) receiveDilationMsg(plaintext []byte) error {
 
 	return nil
 }
-
