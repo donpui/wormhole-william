@@ -223,6 +223,12 @@ func (d *dilationProtocol) managerStateMachine() []ManagerOutputEvent {
 		default:
 		}
 	case ManagerInputEventRxReconnecting:
+		switch d.managerState {
+		case ManagerStateFlushing:
+			d.toState(ManagerStateConnecting)
+			return []ManagerOutputEvent{ManagerOutputEventStartConnecting}
+		default:
+		}
 	case ManagerInputEventRxReconnect:
 		switch d.managerState {
 		case ManagerStateConnected:
