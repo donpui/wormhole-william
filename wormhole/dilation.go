@@ -190,10 +190,9 @@ func (d *dilationProtocol) managerStateMachine() {
 		// send "please" to peer.
 		switch d.managerState {
 		case ManagerStateWaiting:
-			d.managerStateMu.Lock()
-			d.managerState = ManagerStateWanting
-			d.managerStateMu.Unlock()
+			d.toState(ManagerStateWanting)
 			// XXX: send please message
+			return []ManagerOutputEvent{ ManagerOutputEventSendPlease }
 		default:
 			// ignore the rest of the events in this state
 		}
