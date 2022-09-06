@@ -77,11 +77,11 @@ const (
 	ManagerOutputEventChooseRole
 	ManagerOutputEventStartConnectingIgnoreMsg
 	ManagerOutputEventUseHints
-	ManagerOutputStopConnecting
-	ManagerOutputSendReconnecting
-	ManagerOutputStartConnecting
-	ManagerOutputSendReconnect
-	ManagerOutputAbandonConnection
+	ManagerOutputEventStopConnecting
+	ManagerOutputEventSendReconnecting
+	ManagerOutputEventStartConnecting
+	ManagerOutputEventSendReconnect
+	ManagerOutputEventAbandonConnection
 )
 
 const (
