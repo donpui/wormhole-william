@@ -182,7 +182,13 @@ func (d *dilationProtocol) genPleaseMsg() ([]byte, error) {
 // could come via a channel then?
 //
 // XXX: how do we represent the output?
-func (d *dilationProtocol) managerStateMachine() {
+func (d *dilationProtocol) toState(newState ManagerState) {
+	d.managerStateMu.Lock()
+	defer d.managerStateMu.Unlock()
+
+	d.managerState = newState
+}
+func (d *dilationProtocol) managerStateMachine() []ManagerOutputEvent {
 	event :=  <-d.managerInputEv
 	switch event {
 	case ManagerInputEventStart:
