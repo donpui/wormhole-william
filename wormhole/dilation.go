@@ -203,21 +203,42 @@ func (d *dilationProtocol) managerStateMachine() []ManagerOutputEvent {
 			// ignore the rest of the events in this state
 		}
 	case ManagerInputEventRxPlease:
+		switch d.managerState {
+		case ManagerStateWanting:
+			// upon receiving rx_please at WANTING, move
+			// to CONNECTING and output choose_role,
+			// start_connecting_ignore_message
+			d.toState(ManagerStateConnecting)
+			return []ManagerOutputEvent{
+				ManagerOutputEventChooseRole,
+				ManagerOutputEventStartConnectingIgnoreMsg,
+			}
+		default:
+		}
 	case ManagerInputEventConnectionMade:
 	case ManagerInputEventRxReconnecting:
 	case ManagerInputEventRxReconnect:
 	case ManagerInputEventConnectionLostLeader:
 	case ManagerInputEventConnectionLostFollower:
 	case ManagerInputEventRxHints:
+		switch d.managerState {
+		case ManagerStateWanting:
+			// do nothing, stay in WANTING.
+			//
+			// XXX we can as well omit this case statement
+			// but leaving it here for now.
+		default:
+		}
 	case ManagerInputEventStop:
 		switch d.managerState {
-		case ManagerStateWaiting:
+		case ManagerStateWaiting, ManagerStateWanting:
 			d.toState(ManagerStateStopped)
 			return []ManagerOutputEvent{ ManagerOutputEventNotifyStopped }
 		default:
 		}
 	default:
 	}
+	return []ManagerOutputEvent{}
 }
 
 // receives decrypted dilate-$n payloads (but still in json)
