@@ -38,6 +38,7 @@ type DilationState int
 type Role string
 type ManagerState int
 type ManagerInputEvent int
+type ManagerOutputEvent int
 
 const (
 	DilationNotNegotiated DilationState = -1
@@ -67,6 +68,20 @@ const (
 	ManagerInputEventConnectionLostFollower
 	ManagerInputEventRxHints
 	ManagerInputEventStop
+)
+
+const (
+	ManagerOutputEventSendPlease = iota
+	ManagerOutputEventNotifyStopped
+	ManagerOutputEventRxHints
+	ManagerOutputEventChooseRole
+	ManagerOutputEventStartConnectingIgnoreMsg
+	ManagerOutputEventUseHints
+	ManagerOutputStopConnecting
+	ManagerOutputSendReconnecting
+	ManagerOutputStartConnecting
+	ManagerOutputSendReconnect
+	ManagerOutputAbandonConnection
 )
 
 const (
