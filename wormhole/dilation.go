@@ -231,9 +231,18 @@ func (d *dilationProtocol) managerStateMachine() []ManagerOutputEvent {
 		}
 	case ManagerInputEventStop:
 		switch d.managerState {
-		case ManagerStateWaiting, ManagerStateWanting:
+		case ManagerStateWaiting, ManagerStateWanting, ManagerStateLonely, ManagerStateFlushing:
 			d.toState(ManagerStateStopped)
 			return []ManagerOutputEvent{ ManagerOutputEventNotifyStopped }
+		case ManagerStateConnecting:
+			d.toState(ManagerStateStopped)
+			return []ManagerOutputEvent { ManagerOutputEventStopConnecting, ManagerOutputEventNotifyStopped }
+		case ManagerStateConnected:
+			d.toState(ManagerStateStopping)
+			return []ManagerOutputEvent { ManagerOutputEventAbandonConnection }
+		case ManagerStateAbandoning:
+			d.toState(ManagerStateStopping)
+			return []ManagerOutputEvent{}
 		default:
 		}
 	default:
