@@ -208,6 +208,7 @@ func (d *dilationProtocol) managerStateMachine(event ManagerInputEvent) []Manage
 	// event := <-d.managerInputEv
 	var currState ManagerState
 	var nextState ManagerState
+	var outputEvents []ManagerOutputEvent
 
 	currState = d.managerState
 	nextState = d.managerState
@@ -221,7 +222,7 @@ func (d *dilationProtocol) managerStateMachine(event ManagerInputEvent) []Manage
 			nextState = ManagerStateWanting
 			d.toState(nextState)
 			// XXX: send please message
-			return []ManagerOutputEvent{ManagerOutputEventSendPlease}
+			outputEvents = []ManagerOutputEvent{ManagerOutputEventSendPlease}
 		default:
 			// other states should ignore the start event
 		}
@@ -233,7 +234,7 @@ func (d *dilationProtocol) managerStateMachine(event ManagerInputEvent) []Manage
 			// start_connecting_ignore_message
 			nextState = ManagerStateConnecting
 			d.toState(nextState)
-			return []ManagerOutputEvent{
+			outputEvents = []ManagerOutputEvent{
 				ManagerOutputEventChooseRole,
 				ManagerOutputEventStartConnectingIgnoreMsg,
 			}
@@ -245,7 +246,7 @@ func (d *dilationProtocol) managerStateMachine(event ManagerInputEvent) []Manage
 		case ManagerStateConnecting:
 			nextState = ManagerStateConnected
 			d.toState(nextState)
-			return []ManagerOutputEvent{}
+			outputEvents = []ManagerOutputEvent{}
 		default:
 		}
 	case ManagerInputEventRxReconnecting:
@@ -253,7 +254,7 @@ func (d *dilationProtocol) managerStateMachine(event ManagerInputEvent) []Manage
 		case ManagerStateFlushing:
 			nextState = ManagerStateConnecting
 			d.toState(nextState)
-			return []ManagerOutputEvent{ManagerOutputEventStartConnecting}
+			outputEvents = []ManagerOutputEvent{ManagerOutputEventStartConnecting}
 		default:
 		}
 	case ManagerInputEventRxReconnect:
@@ -261,9 +262,9 @@ func (d *dilationProtocol) managerStateMachine(event ManagerInputEvent) []Manage
 		case ManagerStateConnected:
 			nextState = ManagerStateAbandoning
 			d.toState(nextState)
-			return []ManagerOutputEvent{ManagerOutputEventAbandonConnection}
+			outputEvents = []ManagerOutputEvent{ManagerOutputEventAbandonConnection}
 		case ManagerStateConnecting:
-			return []ManagerOutputEvent{
+			outputEvents = []ManagerOutputEvent{
 				ManagerOutputEventStopConnecting,
 				ManagerOutputEventSendReconnecting,
 				ManagerOutputEventStartConnecting,
@@ -271,7 +272,7 @@ func (d *dilationProtocol) managerStateMachine(event ManagerInputEvent) []Manage
 		case ManagerStateLonely:
 			nextState = ManagerStateConnecting
 			d.toState(nextState)
-			return []ManagerOutputEvent{
+			outputEvents = []ManagerOutputEvent{
 				ManagerOutputEventSendReconnecting,
 				ManagerOutputEventStartConnecting,
 			}
@@ -282,11 +283,11 @@ func (d *dilationProtocol) managerStateMachine(event ManagerInputEvent) []Manage
 		case ManagerStateConnected:
 			nextState = ManagerStateFlushing
 			d.toState(nextState)
-			return []ManagerOutputEvent{ManagerOutputEventSendReconnect}
+			outputEvents = []ManagerOutputEvent{ManagerOutputEventSendReconnect}
 		case ManagerStateStopping:
 			nextState = ManagerStateStopped
 			d.toState(nextState)
-			return []ManagerOutputEvent{ManagerOutputEventNotifyStopped}
+			outputEvents = []ManagerOutputEvent{ManagerOutputEventNotifyStopped}
 		default:
 		}
 	case ManagerInputEventConnectionLostFollower:
@@ -294,18 +295,18 @@ func (d *dilationProtocol) managerStateMachine(event ManagerInputEvent) []Manage
 		case ManagerStateConnected:
 			nextState = ManagerStateLonely
 			d.toState(nextState)
-			return []ManagerOutputEvent{}
+			outputEvents = []ManagerOutputEvent{}
 		case ManagerStateAbandoning:
 			nextState = ManagerStateConnecting
 			d.toState(nextState)
-			return []ManagerOutputEvent{
+			outputEvents = []ManagerOutputEvent{
 				ManagerOutputEventSendReconnecting,
 				ManagerOutputEventStartConnecting,
 			}
 		case ManagerStateStopping:
 			nextState = ManagerStateStopped
 			d.toState(nextState)
-			return []ManagerOutputEvent{ManagerOutputEventNotifyStopped}
+			outputEvents = []ManagerOutputEvent{ManagerOutputEventNotifyStopped}
 		default:
 		}
 	case ManagerInputEventRxHints:
@@ -315,9 +316,9 @@ func (d *dilationProtocol) managerStateMachine(event ManagerInputEvent) []Manage
 			//
 			// XXX we can as well omit this case statement
 			// but leaving it here for now.
-			return []ManagerOutputEvent{}
+			outputEvents = []ManagerOutputEvent{}
 		case ManagerStateConnecting:
-			return []ManagerOutputEvent{ManagerOutputEventUseHints}
+			outputEvents = []ManagerOutputEvent{ManagerOutputEventUseHints}
 		default: // other states ignore rx_hints
 		}
 	case ManagerInputEventStop:
@@ -325,26 +326,28 @@ func (d *dilationProtocol) managerStateMachine(event ManagerInputEvent) []Manage
 		case ManagerStateWaiting, ManagerStateWanting, ManagerStateLonely, ManagerStateFlushing:
 			nextState = ManagerStateStopped
 			d.toState(nextState)
-			return []ManagerOutputEvent{ManagerOutputEventNotifyStopped}
+			outputEvents = []ManagerOutputEvent{ManagerOutputEventNotifyStopped}
 		case ManagerStateConnecting:
 			nextState = ManagerStateStopped
 			d.toState(nextState)
-			return []ManagerOutputEvent{ManagerOutputEventStopConnecting, ManagerOutputEventNotifyStopped}
+			outputEvents = []ManagerOutputEvent{ManagerOutputEventStopConnecting, ManagerOutputEventNotifyStopped}
 		case ManagerStateConnected:
 			nextState = ManagerStateStopping
 			d.toState(nextState)
-			return []ManagerOutputEvent{ManagerOutputEventAbandonConnection}
+			outputEvents = []ManagerOutputEvent{ManagerOutputEventAbandonConnection}
 		case ManagerStateAbandoning:
 			nextState = ManagerStateStopping
 			d.toState(nextState)
-			return []ManagerOutputEvent{}
+			outputEvents = []ManagerOutputEvent{}
 		default:
 		}
 	default:
 		log.Printf("dilation manager fsm: unknown input event - %d\n", event)
 	}
+
 	log.Printf("Manager FSM transition: %s -> %s\n", currState, nextState)
-	return []ManagerOutputEvent{}
+
+	return outputEvents
 }
 
 // receives decrypted dilate-$n payloads (but still in json)
