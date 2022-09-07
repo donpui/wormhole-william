@@ -188,8 +188,13 @@ func (d *dilationProtocol) toState(newState ManagerState) {
 
 	d.managerState = newState
 }
-func (d *dilationProtocol) managerStateMachine() []ManagerOutputEvent {
-	event := <-d.managerInputEv
+
+// warning: This is a giant nested switch-case statement and is hard
+// to read. This function would process one input event at a
+// particular state and move to state (if needed) to another state and
+// produce output events.
+func (d *dilationProtocol) managerStateMachine(event ManagerInputEvent) []ManagerOutputEvent {
+	// event := <-d.managerInputEv
 	switch event {
 	case ManagerInputEventStart:
 		// if current state is WAITING, then go to WANTING and
