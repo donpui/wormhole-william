@@ -12,18 +12,18 @@ import (
 )
 
 type dilationProtocol struct {
-	versions       []string
-	state          DilationState
-	stateMu        sync.Mutex
-	managerState   ManagerState
-	managerStateMu sync.Mutex
-	managerInputEv chan ManagerInputEvent
-	connectorState ConnectorState
+	versions         []string
+	state            DilationState
+	stateMu          sync.Mutex
+	managerState     ManagerState
+	managerStateMu   sync.Mutex
+	managerInputEv   chan ManagerInputEvent
+	connectorState   ConnectorState
 	connectorStateMu sync.Mutex
 	connectorInputEv chan ConnectorInputEvent
-	msgInput       chan []byte
-	role           Role
-	side           string
+	msgInput         chan []byte
+	role             Role
+	side             string
 	// The code mostly sans-io approach: functional core,
 	// imperative shell.
 	//
@@ -57,15 +57,15 @@ const (
 )
 
 const (
-	ManagerStateWaiting ManagerState = "ManagerStateWaiting"
-	ManagerStateWanting ManagerState = "ManagerStateWanting"
+	ManagerStateWaiting    ManagerState = "ManagerStateWaiting"
+	ManagerStateWanting    ManagerState = "ManagerStateWanting"
 	ManagerStateConnecting ManagerState = "ManagerStateConnecting"
-	ManagerStateConnected ManagerState = "ManagerStateConnected"
-	ManagerStateFlushing ManagerState = "ManagerStateFlushing"
-	ManagerStateLonely ManagerState = "ManagerStateLonely"
+	ManagerStateConnected  ManagerState = "ManagerStateConnected"
+	ManagerStateFlushing   ManagerState = "ManagerStateFlushing"
+	ManagerStateLonely     ManagerState = "ManagerStateLonely"
 	ManagerStateAbandoning ManagerState = "ManagerStateAbandoning"
-	ManagerStateStopping ManagerState = "ManagerStateStopping"
-	ManagerStateStopped ManagerState = "ManagerStateStopped"
+	ManagerStateStopping   ManagerState = "ManagerStateStopping"
+	ManagerStateStopped    ManagerState = "ManagerStateStopped"
 )
 
 const (
@@ -96,8 +96,8 @@ const (
 
 const (
 	ConnectorStateConnecting ConnectorState = "ConnectorStateConnecting"
-	ConnectorStateConnected ConnectorState = "ConnectorStateConnected"
-	ConnectorStateStopped ConnectorState = "ConnectorStateStopped"
+	ConnectorStateConnected  ConnectorState = "ConnectorStateConnected"
+	ConnectorStateStopped    ConnectorState = "ConnectorStateStopped"
 )
 
 const (
@@ -159,8 +159,8 @@ func genSide() string {
 func InitDilation() *dilationProtocol {
 	mySide := genSide()
 	return &dilationProtocol{
-		versions: []string{"1"},
-		side:     mySide,
+		versions:     []string{"1"},
+		side:         mySide,
 		managerState: ManagerStateWaiting,
 	}
 }
@@ -241,6 +241,9 @@ func (d *dilationProtocol) getState() ManagerState {
 // particular state and move to state (if needed) to another state and
 // produce output events. The caller also has access to the input payload
 // that the functions tied to output events may need to work on.
+
+// step: input_event, current_state -> (output_State, [output_events])
+
 func (d *dilationProtocol) managerStateMachine(event ManagerInputEvent) []ManagerOutputEvent {
 	// event := <-d.managerInputEv
 	var currState ManagerState
@@ -390,16 +393,16 @@ func (d *dilationProtocol) managerStateMachine(event ManagerInputEvent) []Manage
 // receives decrypted dilate-$n payloads (but still in json)
 func (d *dilationProtocol) receiveDilationMsg() {
 	eventMap := map[string]ManagerInputEvent{
-		"please": ManagerInputEventRxPlease,
+		"please":           ManagerInputEventRxPlease,
 		"connection-hints": ManagerInputEventRxHints,
-		"reconnect": ManagerInputEventRxReconnect,
-		"reconnecting": ManagerInputEventRxReconnecting,
+		"reconnect":        ManagerInputEventRxReconnect,
+		"reconnecting":     ManagerInputEventRxReconnecting,
 	}
 
 	// this go routine sits here waiting for incoming network
 	// bytestream and convert to a manager event and push the
 	// event into manager's input event queue (a channel)
-	go func(){
+	go func() {
 		var result map[string]interface{}
 		for plaintext := range d.msgInput {
 			err := json.Unmarshal(plaintext, &result)
