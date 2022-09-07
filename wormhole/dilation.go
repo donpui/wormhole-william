@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"sync"
 
 	"github.com/psanford/wormhole-william/internal/crypto"
@@ -309,6 +310,7 @@ func (d *dilationProtocol) managerStateMachine(event ManagerInputEvent) []Manage
 		default:
 		}
 	default:
+		log.Printf("dilation manager fsm: unknown input event - %d\n", event)
 	}
 	return []ManagerOutputEvent{}
 }
