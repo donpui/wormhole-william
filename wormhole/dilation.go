@@ -191,6 +191,13 @@ func (d *dilationProtocol) toState(newState ManagerState) {
 	d.managerState = newState
 }
 
+func (d *dilationProtocol) getState() ManagerState {
+	d.managerStateMu.Lock()
+	defer d.managerStateMu.Unlock()
+
+	return d.managerState
+}
+
 // warning: This is a giant nested switch-case statement and is hard
 // to read. This function would process one input event at a
 // particular state and move to state (if needed) to another state and
