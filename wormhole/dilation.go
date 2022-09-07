@@ -129,6 +129,7 @@ func InitDilation() *dilationProtocol {
 	return &dilationProtocol{
 		versions: []string{"1"},
 		side:     mySide,
+		managerState: ManagerStateWaiting,
 	}
 }
 
