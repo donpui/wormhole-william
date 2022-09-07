@@ -480,5 +480,6 @@ func (d *dilationProtocol) connectorStateMachine(event ConnectorInputEvent) []Co
 			}
 		}
 	}
+	log.Printf("Connector FSM transition: %s -> %s\n", currState, nextState)
 	return outputEvents
 }
