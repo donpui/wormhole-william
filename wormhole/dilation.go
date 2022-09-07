@@ -18,6 +18,9 @@ type dilationProtocol struct {
 	managerState   ManagerState
 	managerStateMu sync.Mutex
 	managerInputEv chan ManagerInputEvent
+	connectorState ConnectorState
+	connectorStateMu sync.Mutex
+	connectorInputEv chan ConnectorInputEvent
 	msgInput       chan []byte
 	role           Role
 	side           string
@@ -38,9 +41,14 @@ type dilationProtocol struct {
 
 type DilationState int
 type Role string
+
 type ManagerState string
 type ManagerInputEvent int
 type ManagerOutputEvent int
+
+type ConnectorState string
+type ConnectorInputEvent int
+type ConnectorOutputEvent int
 
 const (
 	DilationNotNegotiated DilationState = -1
@@ -84,6 +92,29 @@ const (
 	ManagerOutputEventStartConnecting
 	ManagerOutputEventSendReconnect
 	ManagerOutputEventAbandonConnection
+)
+
+const (
+	ConnectorStateConnecting ConnectorState = "ConnectorStateConnecting"
+	ConnectorStateConnected ConnectorState = "ConnectorStateConnected"
+	ConnectorStateStopped ConnectorState = "ConnectorStateStopped"
+)
+
+const (
+	ConnectorInputEventListenerReady = iota
+	ConnectorInputEventAccept
+	ConnectorInputEventAddCandidate
+	ConnectorInputEventGotHints
+	ConnectorInputEventAddRelay
+	ConnectorInputEventStop
+)
+
+const (
+	ConnectorOutputEventPublishHints = iota
+	ConnectorOutputEventSelectAndStopRemaining
+	ConnectorOutputEventConsider
+	ConnectorOutputEventUseHints
+	ConnectorOutputEventStopEverything
 )
 
 const (
