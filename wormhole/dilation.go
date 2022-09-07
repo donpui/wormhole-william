@@ -192,7 +192,8 @@ func (d *dilationProtocol) toState(newState ManagerState) {
 // warning: This is a giant nested switch-case statement and is hard
 // to read. This function would process one input event at a
 // particular state and move to state (if needed) to another state and
-// produce output events.
+// produce output events. The caller also has access to the input payload
+// that the functions tied to output events may need to work on.
 func (d *dilationProtocol) managerStateMachine(event ManagerInputEvent) []ManagerOutputEvent {
 	// event := <-d.managerInputEv
 	switch event {
@@ -265,7 +266,7 @@ func (d *dilationProtocol) managerStateMachine(event ManagerInputEvent) []Manage
 			return []ManagerOutputEvent{}
 		case ManagerStateConnecting:
 			return []ManagerOutputEvent{ManagerOutputEventUseHints}
-		default:
+		default: // other states ignore rx_hints
 		}
 	case ManagerInputEventStop:
 		switch d.managerState {
