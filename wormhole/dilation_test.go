@@ -49,3 +49,16 @@ func TestDilationRole(t *testing.T) {
 		t.Fatalf("side %s should be leader and side %s should be follower", side1, side2)
 	}
 }
+
+func TestDilationManagerStateTransition(t *testing.T) {
+	d := InitDilation()
+	outEvents := d.managerStateMachine(ManagerInputEventStart)
+
+	if len(outEvents) != 1 {
+		t.Fatalf("expected please event, but got none")
+	}
+
+	if d.getState() != ManagerStateWanting {
+		t.Fatalf("expected state to change from WAITING to WANTING with START event")
+	}
+}
