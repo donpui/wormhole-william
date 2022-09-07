@@ -324,7 +324,8 @@ func (d *dilationProtocol) managerStateMachine(event ManagerInputEvent) []Manage
 	return []ManagerOutputEvent{}
 }
 
-func (d *dilationProtocol) processNetworkMessages() {
+// receives decrypted dilate-$n payloads (but still in json)
+func (d *dilationProtocol) receiveDilationMsg() {
 	eventMap := map[string]ManagerInputEvent{
 		"please": ManagerInputEventRxPlease,
 		"connection-hints": ManagerInputEventRxHints,
@@ -359,45 +360,4 @@ func (d *dilationProtocol) processNetworkMessages() {
 			}
 		}
 	}()
-}
-
-// receives decrypted dilate-$n payloads (but still in json)
-func (d *dilationProtocol) receiveDilationMsg(plaintext []byte) error {
-	var result map[string]interface{}
-
-	err := json.Unmarshal(plaintext, &result)
-	if err != nil {
-		return err
-	}
-
-	// the plaintext message could be either a "please",
-	// "connection-hints", "reconnect" or "reconnecting" message.
-	switch result["type"] {
-	case "please": // XXX: handle "please" msg
-		// if we are in WANTING state and get the "please"
-		// message, then enter "CONNECTING" state and do
-		// "choose_role", "start_connecting_ignore_message" it
-		// also depends on the role (i.e. whether we are
-		// leader or follower).
-		if d.role == Leader {
-			switch d.managerState {
-			case ManagerStateWanting:
-				// current state is WANTING and we got
-				// please as input. More to a new state
-				d.managerStateMu.Lock()
-				d.managerState = ManagerStateConnecting
-				d.managerStateMu.Unlock()
-				// XXX: generate events: choose_role, start_connecting
-			default:
-				// ignore the rest, continue in the same state.
-			}
-		}
-	case "connection-hints": // XXX: handle "connection-hints" msg
-	case "reconnect": // XXX: handle "reconnect" msg
-	case "reconnecting": // XXX: handle "reconnecting" msg
-	default:
-		// XXX: unknown dilation message
-	}
-
-	return nil
 }
