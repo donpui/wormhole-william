@@ -18,6 +18,7 @@ type dilationProtocol struct {
 	managerState   ManagerState
 	managerStateMu sync.Mutex
 	managerInputEv chan ManagerInputEvent
+	msgInput       chan []byte
 	role           Role
 	side           string
 	// The code mostly sans-io approach: functional core,
@@ -321,6 +322,43 @@ func (d *dilationProtocol) managerStateMachine(event ManagerInputEvent) []Manage
 		log.Printf("dilation manager fsm: unknown input event - %d\n", event)
 	}
 	return []ManagerOutputEvent{}
+}
+
+func (d *dilationProtocol) processNetworkMessages() {
+	eventMap := map[string]ManagerInputEvent{
+		"please": ManagerInputEventRxPlease,
+		"connection-hints": ManagerInputEventRxHints,
+		"reconnect": ManagerInputEventRxReconnect,
+		"reconnecting": ManagerInputEventRxReconnecting,
+	}
+
+	// this go routine sits here waiting for incoming network
+	// bytestream and convert to a manager event and push the
+	// event into manager's input event queue (a channel)
+	go func(){
+		var result map[string]interface{}
+		for plaintext := range d.msgInput {
+			err := json.Unmarshal(plaintext, &result)
+			if err != nil {
+				// XXX send an error msg via a channel
+			}
+			eventTxt, ok := result["type"]
+			if ok {
+				// convert event msg into a value of
+				// input event type (which is an int
+				// underneath)
+				event, ok := eventMap[eventTxt.(string)]
+				if ok {
+					// push the input event into manager input event channel
+					d.managerInputEv <- event
+				} else {
+					// XXX log the lookup error
+				}
+			} else {
+				// XXX log the lookup error
+			}
+		}
+	}()
 }
 
 // receives decrypted dilate-$n payloads (but still in json)
