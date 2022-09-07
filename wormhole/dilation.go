@@ -38,7 +38,7 @@ type dilationProtocol struct {
 
 type DilationState int
 type Role string
-type ManagerState int
+type ManagerState string
 type ManagerInputEvent int
 type ManagerOutputEvent int
 
@@ -49,15 +49,15 @@ const (
 )
 
 const (
-	ManagerStateWaiting = iota
-	ManagerStateWanting
-	ManagerStateConnecting
-	ManagerStateConnected
-	ManagerStateFlushing
-	ManagerStateLonely
-	ManagerStateAbandoning
-	ManagerStateStopping
-	ManagerStateStopped
+	ManagerStateWaiting ManagerState = "ManagerStateWaiting"
+	ManagerStateWanting ManagerState = "ManagerStateWanting"
+	ManagerStateConnecting ManagerState = "ManagerStateConnecting"
+	ManagerStateConnected ManagerState = "ManagerStateConnected"
+	ManagerStateFlushing ManagerState = "ManagerStateFlushing"
+	ManagerStateLonely ManagerState = "ManagerStateLonely"
+	ManagerStateAbandoning ManagerState = "ManagerStateAbandoning"
+	ManagerStateStopping ManagerState = "ManagerStateStopping"
+	ManagerStateStopped ManagerState = "ManagerStateStopped"
 )
 
 const (
