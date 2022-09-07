@@ -223,6 +223,12 @@ func (d *dilationProtocol) managerToNewState(newState ManagerState) {
 	d.managerState = newState
 }
 
+func (d *dilationProtocol) connectorToNewState(newState ConnectorState) {
+	d.connectorStateMu.Lock()
+	defer d.connectorStateMu.Unlock()
+
+	d.connectorState = newState
+}
 func (d *dilationProtocol) getState() ManagerState {
 	d.managerStateMu.Lock()
 	defer d.managerStateMu.Unlock()
@@ -417,4 +423,62 @@ func (d *dilationProtocol) receiveDilationMsg() {
 			}
 		}
 	}()
+}
+
+func (d *dilationProtocol) connectorStateMachine(event ConnectorInputEvent) []ConnectorOutputEvent {
+	var currState ConnectorState
+	var nextState ConnectorState
+	var outputEvents []ConnectorOutputEvent
+
+	currState = d.connectorState
+	nextState = d.connectorState
+
+	switch event {
+	case ConnectorInputEventListenerReady:
+		switch currState {
+		case ConnectorStateConnecting:
+			outputEvents = []ConnectorOutputEvent{ConnectorOutputEventPublishHints}
+		case ConnectorStateConnected:
+		default:
+		}
+	case ConnectorInputEventAccept:
+		switch currState {
+		case ConnectorStateConnecting:
+			nextState = ConnectorStateConnected
+			d.connectorToNewState(nextState)
+			outputEvents = []ConnectorOutputEvent{ConnectorOutputEventSelectAndStopRemaining}
+		default:
+		}
+	case ConnectorInputEventAddCandidate:
+		switch currState {
+		case ConnectorStateConnecting:
+			outputEvents = []ConnectorOutputEvent{ConnectorOutputEventConsider}
+		default:
+		}
+	case ConnectorInputEventGotHints:
+		switch currState {
+		case ConnectorStateConnecting:
+			outputEvents = []ConnectorOutputEvent{ConnectorOutputEventUseHints}
+		default:
+		}
+	case ConnectorInputEventAddRelay:
+		switch currState {
+		case ConnectorStateConnecting:
+			outputEvents = []ConnectorOutputEvent{
+				ConnectorOutputEventUseHints,
+				ConnectorOutputEventPublishHints,
+			}
+		default:
+		}
+	case ConnectorInputEventStop:
+		switch currState {
+		case ConnectorStateConnecting, ConnectorStateConnected:
+			nextState = ConnectorStateStopped
+			d.connectorToNewState(nextState)
+			outputEvents = []ConnectorOutputEvent{
+				ConnectorOutputEventStopEverything,
+			}
+		}
+	}
+	return outputEvents
 }
