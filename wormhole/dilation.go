@@ -205,7 +205,7 @@ func (d *dilationProtocol) managerStateMachine(event ManagerInputEvent) []Manage
 			// XXX: send please message
 			return []ManagerOutputEvent{ManagerOutputEventSendPlease}
 		default:
-			// ignore the rest of the events in this state
+			// other states should ignore the start event
 		}
 	case ManagerInputEventRxPlease:
 		switch d.managerState {
