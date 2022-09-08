@@ -109,6 +109,16 @@ const (
 	ConnectorInputEventStop
 )
 
+// XXX placeholder for a set of connections
+// XXX replace with the proper type later
+type Candidate string
+
+type ConnectorInputEventS struct {
+	Event      ConnectorInputEvent // 0 - ListenerReady, 1 - Accept, 2 - AddCandidate, 4 - GotHints, 5 - AddRelay, 6 - Stop 
+	hints   transitHintsV1
+	candidate Candidate
+}
+
 const (
 	ConnectorOutputEventPublishHints = iota
 	ConnectorOutputEventSelectAndStopRemaining
@@ -116,6 +126,12 @@ const (
 	ConnectorOutputEventUseHints
 	ConnectorOutputEventStopEverything
 )
+
+type ConnectorOutputEventS struct {
+	Event ConnectorOutputEvent
+	hints  transitHintsV1
+	candidate Candidate
+}
 
 const (
 	Leader   Role = "Leader"
@@ -484,5 +500,43 @@ func (d *dilationProtocol) connectorStateMachine(event ConnectorInputEvent) []Co
 		}
 	}
 	log.Printf("Connector FSM transition: %s -> %s\n", currState, nextState)
+	return outputEvents
+}
+
+// each input and output event carry some kind of a payload. So, we need to somehow move that payload from an input event to an output event
+func (d *dilationProtocol) processConnectorStateMachine(input ConnectorInputEventS) []ConnectorOutputEventS {
+	outputs := d.connectorStateMachine(input.Event)
+	outputEvents := []ConnectorOutputEventS{}
+
+	for output := range outputs {
+		switch output {
+		case ConnectorOutputEventPublishHints:
+			outputEvents = append(outputEvents, ConnectorOutputEventS{
+				Event: ConnectorOutputEventPublishHints,
+				hints: input.hints,
+			})
+		case ConnectorOutputEventSelectAndStopRemaining:
+			outputEvents = append(outputEvents, ConnectorOutputEventS{
+				Event: ConnectorOutputEventSelectAndStopRemaining,
+				candidate: input.candidate,
+			})
+		case ConnectorOutputEventConsider:
+			outputEvents = append(outputEvents, ConnectorOutputEventS{
+				Event: ConnectorOutputEventConsider,
+				candidate: input.candidate,
+			})
+		case ConnectorOutputEventUseHints:
+			outputEvents = append(outputEvents, ConnectorOutputEventS{
+				Event: ConnectorOutputEventUseHints,
+				hints: input.hints,
+			})
+		case ConnectorOutputEventStopEverything:
+			outputEvents = append(outputEvents, ConnectorOutputEventS{
+				Event: ConnectorOutputEventStopEverything,
+			})
+		default:
+		}
+	}
+
 	return outputEvents
 }
