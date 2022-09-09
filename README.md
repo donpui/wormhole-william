@@ -37,7 +37,7 @@ Global Flags:
       --appid string            AppID to use (default "lothar.com/wormhole/text-or-file-xfer")
       --no-listen               (debug) don't open a listening socket for transit
       --relay-url string        rendezvous relay to use (default "ws://relay.magic-wormhole.io:4000/v1")
-      --transit-helper string   relay server url (default "tcp:transit.magic-wormhole.io:4001")
+      --transit-helper string   relay server url (default "tcp://transit.magic-wormhole.io:4001")
 
 
 $ wormhole-william receive --help
@@ -58,7 +58,7 @@ Global Flags:
       --appid string            AppID to use (default "lothar.com/wormhole/text-or-file-xfer")
       --no-listen               (debug) don't open a listening socket for transit
       --relay-url string        rendezvous relay to use (default "ws://relay.magic-wormhole.io:4000/v1")
-      --transit-helper string   relay server url (default "tcp:transit.magic-wormhole.io:4001")
+      --transit-helper string   relay server url (default "tcp://transit.magic-wormhole.io:4001")
 
 ```
 

@@ -40,7 +40,7 @@ const (
 const (
 	DEFAULT_APP_ID                      = "lothar.com/wormhole/text-or-file-xfer"
 	DEFAULT_RENDEZVOUS_URL              = "ws://relay.magic-wormhole.io:4000/v1"
-	DEFAULT_TRANSIT_RELAY_URL           = "tcp:transit.magic-wormhole.io:4001"
+	DEFAULT_TRANSIT_RELAY_URL           = "tcp://transit.magic-wormhole.io:4001"
 	DEFAULT_PASSPHRASE_COMPONENT_LENGTH = 2
 )
 

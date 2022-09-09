@@ -9,12 +9,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/url"
 	"reflect"
 	"strconv"
 	"strings"
 	"sync"
 
-	"github.com/psanford/wormhole-william/internal"
 	"github.com/psanford/wormhole-william/internal/crypto"
 	"github.com/psanford/wormhole-william/rendezvous"
 	"golang.org/x/crypto/hkdf"
@@ -33,7 +33,7 @@ type Client struct {
 	// DefaultRendezvousURL will be used.
 	RendezvousURL string
 
-	// TransitRelayURL is the proto:host:port address to offer
+	// TransitRelayURL is the proto://host:port address to offer
 	// to use for file transfers where direct connections are unavailable.
 	// If empty, DefaultTransitRelayURL will be used.
 	TransitRelayURL string
@@ -64,7 +64,7 @@ var (
 	DefaultRendezvousURL = "ws://relay.magic-wormhole.io:4000/v1"
 
 	// DefaultTransitRelayURL is the default transit server to ues.
-	DefaultTransitRelayURL = "tcp:transit.magic-wormhole.io:4001"
+	DefaultTransitRelayURL = "tcp://transit.magic-wormhole.io:4001"
 )
 
 func (c *Client) wordCount() int {
@@ -75,11 +75,21 @@ func (c *Client) wordCount() int {
 	}
 }
 
-func (c *Client) relayURL() internal.SimpleURL {
-	if c.TransitRelayURL != "" {
-		return internal.MustNewSimpleURL(c.TransitRelayURL)
+func (c *Client) relayURL() (*url.URL, error) {
+	var rurl = c.TransitRelayURL
+	if rurl == "" {
+		rurl = DefaultTransitRelayURL
 	}
-	return internal.MustNewSimpleURL(DefaultTransitRelayURL)
+	var url, err = url.Parse(rurl)
+	if err != nil {
+		return nil, err
+	}
+	/* Backwards compatibility: Find old tcp:host style URLs and insert "//" then try again */
+	if url.Scheme == "tcp" && url.Opaque != "" {
+		rurl := "tcp://" + rurl[4:]
+		return url.Parse(rurl)
+	}
+	return url, nil
 }
 
 // SendResult has information about whether or not a Send command was successful.
@@ -246,18 +256,24 @@ type transitAbility struct {
 }
 
 type transitHintsV1 struct {
-	Hostname string               `json:"hostname,omitempty"`
-	Port     int                  `json:"port,omitempty"`
-	Priority float64              `json:"priority"`
-	Type     string               `json:"type"`
-	Hints    []transitHintsV1Hint `json:"hints,omitempty"`
-}
-
-type transitHintsV1Hint struct {
+	Type string `json:"type"`
+	// When type is "direct-tcp-v1" or "tor-tcp-v1"
 	Hostname string  `json:"hostname"`
 	Port     int     `json:"port"`
 	Priority float64 `json:"priority"`
-	Type     string  `json:"type"`
+	// When type is "relay-v1"
+	Name  string              `json:"name,omitempty"`
+	Hints []transitHintsRelay `json:"hints"`
+}
+
+type transitHintsRelay struct {
+	Type string `json:"type"`
+	// When type is "direct-tcp-v1"
+	Hostname string  `json:"hostname,omitempty"`
+	Port     int     `json:"port,omitempty"`
+	Priority float64 `json:"priority,omitempty"`
+	// When type is "websocket"
+	Url string `json:"url,omitempty"`
 }
 
 type transitMsg struct {

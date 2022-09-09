@@ -12,9 +12,9 @@ import (
 	"math"
 	"math/big"
 	"net"
+	"net/url"
 	"strconv"
 
-	"github.com/psanford/wormhole-william/internal"
 	"github.com/psanford/wormhole-william/internal/crypto"
 	"golang.org/x/crypto/hkdf"
 	"golang.org/x/crypto/nacl/secretbox"
@@ -162,7 +162,7 @@ func (d *transportCryptor) writeRecord(msg []byte) error {
 	return err
 }
 
-func newFileTransport(transitKey []byte, appID string, relayURL internal.SimpleURL, disableListener bool) *fileTransport {
+func newFileTransport(transitKey []byte, appID string, relayURL *url.URL, disableListener bool) *fileTransport {
 	return &fileTransport{
 		transitKey:      transitKey,
 		appID:           appID,
@@ -175,7 +175,7 @@ type fileTransport struct {
 	disableListener bool
 	listener        net.Listener
 	relayConn       net.Conn
-	relayURL        internal.SimpleURL
+	relayURL        *url.URL
 	transitKey      []byte
 	appID           string
 }
@@ -188,10 +188,16 @@ func (t *fileTransport) connectViaRelay(otherTransit *transitMsg) (net.Conn, err
 
 	var count int
 
-	for _, outerHint := range otherTransit.HintsV1 {
-		if outerHint.Type == "relay-v1" {
-			for _, innerHint := range outerHint.Hints {
-				addr := net.JoinHostPort(innerHint.Hostname, strconv.Itoa(innerHint.Port))
+	for _, relay := range otherTransit.HintsV1 {
+		if relay.Type == "relay-v1" {
+			for _, endpoint := range relay.Hints {
+				var addr string
+				switch endpoint.Type {
+				case "direct-tcp-v1":
+					addr = net.JoinHostPort(endpoint.Hostname, strconv.Itoa(endpoint.Port))
+				case "websocket-v1":
+					addr = endpoint.Url
+				}
 				ctx, cancel := context.WithCancel(context.Background())
 				cancelFuncs[addr] = cancel
 
@@ -249,9 +255,9 @@ func (t *fileTransport) connectToRelay(ctx context.Context, successChan chan net
 	var d net.Dialer
 	var conn net.Conn
 	var err error
-	addr := t.relayURL.Addr()
+	addr := t.relayURL.Host // This contains the port if necessary
 
-	switch t.relayURL.Proto {
+	switch t.relayURL.Scheme {
 	case "tcp":
 		conn, err = d.DialContext(ctx, "tcp", addr)
 
@@ -268,6 +274,7 @@ func (t *fileTransport) connectToRelay(ctx context.Context, successChan chan net
 			return
 		}
 		wsconn.SetReadLimit(websocketReadSize)
+
 		conn = websocket.NetConn(ctx, wsconn, websocket.MessageBinary)
 	}
 
@@ -308,7 +315,7 @@ func (t *fileTransport) connectToSingleHost(ctx context.Context, addr string, su
 func (t *fileTransport) directRecvHandshake(ctx context.Context, conn net.Conn, successChan chan net.Conn, failChan chan string) {
 	expectHeader := t.senderHandshakeHeader()
 
-	addr := t.relayURL.Addr()
+	addr := t.relayURL.Host
 	gotHeader := make([]byte, len(expectHeader))
 
 	_, err := io.ReadFull(conn, gotHeader)
@@ -386,29 +393,43 @@ func (t *fileTransport) makeTransitMsg() (*transitMsg, error) {
 	}
 
 	if t.relayConn != nil {
-		// TODO: use an enum
 		var relayType string
-		switch t.relayURL.Proto {
+		switch t.relayURL.Scheme {
 		case "tcp":
 			relayType = "direct-tcp-v1"
 		case "ws":
-			relayType = "direct-ws-v1"
+			relayType = "websocket-v1"
 		case "wss":
-			relayType = "direct-wss-v1"
+			relayType = "websocket-v1"
 		default:
-			return nil, fmt.Errorf("unknown relay protocol")
+			return nil, fmt.Errorf("%w: '%s'", UnsupportedProtocolErr, t.relayURL.Scheme)
 		}
-		msg.HintsV1 = append(msg.HintsV1, transitHintsV1{
-			Type: "relay-v1",
-			Hints: []transitHintsV1Hint{
-				{
-					Type:     relayType,
-					Priority: 2.0,
-					Hostname: t.relayURL.Host,
-					Port:     t.relayURL.Port,
+		if relayType == "direct-tcp-v1" {
+			var port, err = strconv.Atoi(t.relayURL.Port())
+			if err != nil {
+				return nil, fmt.Errorf("invalid port")
+			}
+			msg.HintsV1 = append(msg.HintsV1, transitHintsV1{
+				Type: "relay-v1",
+				Hints: []transitHintsRelay{
+					{
+						Type:     relayType,
+						Hostname: t.relayURL.Hostname(),
+						Port:     port,
+					},
 				},
-			},
-		})
+			})
+		} else {
+			msg.HintsV1 = append(msg.HintsV1, transitHintsV1{
+				Type: "relay-v1",
+				Hints: []transitHintsRelay{
+					{
+						Type: relayType,
+						Url:  t.relayURL.String(),
+					},
+				},
+			})
+		}
 	}
 
 	return &msg, nil
@@ -462,8 +483,7 @@ func (t *fileTransport) listen() error {
 	if t.disableListener {
 		return nil
 	}
-
-	switch t.relayURL.Proto {
+	switch t.relayURL.Scheme {
 	case "tcp":
 		l, err := net.Listen("tcp", ":0")
 		if err != nil {
@@ -474,7 +494,7 @@ func (t *fileTransport) listen() error {
 	case "ws", "wss":
 		t.listener = nil
 	default:
-		return fmt.Errorf("%w: %s", UnsupportedProtocolErr, t.relayURL.Proto)
+		return fmt.Errorf("%w: '%s'", UnsupportedProtocolErr, t.relayURL.Scheme)
 	}
 
 	return nil
@@ -484,13 +504,15 @@ func (t *fileTransport) listenRelay() (err error) {
 	ctx := context.Background()
 
 	var conn net.Conn
-	switch t.relayURL.Proto {
+	switch t.relayURL.Scheme {
 	case "tcp":
 		// NB: don't dial the relay if we don't have an address.
-		addr := t.relayURL.Addr()
-		if addr == ":0" {
+		// NB2: Host already contains the port here, if present
+		addr := t.relayURL.Host
+		if addr == "" {
 			return nil
 		}
+
 		conn, err = net.Dial("tcp", addr)
 		if err != nil {
 			return err
@@ -503,7 +525,7 @@ func (t *fileTransport) listenRelay() (err error) {
 		c.SetReadLimit(websocketReadSize)
 		conn = websocket.NetConn(ctx, c, websocket.MessageBinary)
 	default:
-		return fmt.Errorf("%w: %s", UnsupportedProtocolErr, t.relayURL.Proto)
+		return fmt.Errorf("%w: '%s'", UnsupportedProtocolErr, t.relayURL.Scheme)
 	}
 
 	_, err = conn.Write(t.relayHandshakeHeader())

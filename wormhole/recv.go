@@ -180,7 +180,11 @@ func (c *Client) Receive(ctx context.Context, code string, disableListener bool,
 	}
 
 	transitKey := deriveTransitKey(clientProto.sharedKey, appID)
-	transport := newFileTransport(transitKey, appID, c.relayURL(), disableListener)
+	relayUrl, err := c.relayURL()
+	if err != nil {
+		return nil, fmt.Errorf("Invalid relay URL")
+	}
+	transport := newFileTransport(transitKey, appID, relayUrl, disableListener)
 
 	transitMsg, err := transport.makeTransitMsg()
 	if err != nil {

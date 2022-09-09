@@ -11,6 +11,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
 	"runtime/pprof"
@@ -18,8 +19,6 @@ import (
 	"sync"
 	"testing"
 	"time"
-
-	"github.com/psanford/wormhole-william/internal"
 
 	"github.com/klauspost/compress/zip"
 	"github.com/psanford/wormhole-william/internal/crypto"
@@ -42,7 +41,7 @@ func TestWormholeSendRecvText(t *testing.T) {
 	url := rs.WebSocketURL()
 
 	// disable transit relay
-	DefaultTransitRelayURL = ""
+	DefaultTransitRelayURL = "tcp://"
 
 	var c0Verifier string
 	var c0 Client
@@ -173,7 +172,7 @@ func TestVerifierAbort(t *testing.T) {
 	url := rs.WebSocketURL()
 
 	// disable transit relay
-	DefaultTransitRelayURL = ""
+	DefaultTransitRelayURL = "tcp://"
 
 	var c0 Client
 	c0.RendezvousURL = url
@@ -216,7 +215,7 @@ func TestWormholeFileReject(t *testing.T) {
 	url := rs.WebSocketURL()
 
 	// disable transit relay for this test
-	DefaultTransitRelayURL = ""
+	DefaultTransitRelayURL = "tcp://"
 
 	var c0 Client
 	c0.RendezvousURL = url
@@ -654,7 +653,7 @@ func TestWormholeDirectoryTransportSendRecvDirect(t *testing.T) {
 	url := rs.WebSocketURL()
 
 	// disable transit relay for this test
-	DefaultTransitRelayURL = ""
+	DefaultTransitRelayURL = "tcp://"
 
 	var c0Verifier string
 	var c0 Client
@@ -759,7 +758,7 @@ func TestSendRecvEmptyFileDirect(t *testing.T) {
 
 	rs := rendezvousservertest.NewServerLegacy()
 
-	// TODO relay server may not be needed in this test
+	DefaultTransitRelayURL = "tcp://"
 
 	for relayProtocol, newRelayServer := range relayServerConstructors {
 		t.Run(fmt.Sprintf("With %s relay server", relayProtocol), func(t *testing.T) {
@@ -979,7 +978,7 @@ func TestWormholeDirectoryTransportSendRecvRelay(t *testing.T) {
 type testRelayServer struct {
 	*httptest.Server
 	l       net.Listener
-	url     internal.SimpleURL
+	url     *url.URL
 	proto   string
 	wg      sync.WaitGroup
 	mu      sync.Mutex
@@ -992,9 +991,13 @@ func newTestTCPRelayServer() *testRelayServer {
 		panic(err)
 	}
 
+	url, err := url.Parse("tcp://" + l.Addr().String())
+	if err != nil {
+		panic(err)
+	}
 	rs := &testRelayServer{
 		l:       l,
-		url:     internal.MustNewSimpleURL("tcp:" + l.Addr().String()),
+		url:     url,
 		proto:   "tcp",
 		streams: make(map[string]net.Conn),
 	}
@@ -1030,7 +1033,11 @@ func newTestWSRelayServer() *testRelayServer {
 	smux.HandleFunc("/", rs.handleWSRelay)
 
 	rs.Server = httptest.NewServer(smux)
-	rs.url = internal.MustNewSimpleURL("ws://" + rs.Server.Listener.Addr().String())
+	url, err := url.Parse("ws://" + rs.Server.Listener.Addr().String())
+	if err != nil {
+		panic(err)
+	}
+	rs.url = url
 	rs.l = rs.Server.Listener
 
 	return rs
@@ -1171,10 +1178,28 @@ func (s *splitReader) Read(b []byte) (int, error) {
 func TestClient_relayURL_default(t *testing.T) {
 	var c Client
 
+	DefaultTransitRelayURL = "tcp://transit.magic-wormhole.io:8001"
+	url, err := c.relayURL()
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	if url.Scheme != "tcp" {
+		t.Error(fmt.Sprintf("invalid protocol, expected tcp, got %v", url))
+	}
+}
+
+func TestClient_relayURL_backwards_compatibility(t *testing.T) {
+	var c Client
+
 	DefaultTransitRelayURL = "tcp:transit.magic-wormhole.io:8001"
-	p := c.relayURL().Proto
-	if p != "tcp" {
-		t.Error(fmt.Sprintf("invalid protocol, expected tcp, got %v", p))
+	url, err := c.relayURL()
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	if url.String() != "tcp://transit.magic-wormhole.io:8001" {
+		t.Error(fmt.Sprintf("invalid URL, expected 'tcp://[…]', got %v", url))
 	}
 }
 

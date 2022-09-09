@@ -312,8 +312,13 @@ func (c *Client) sendFileDirectory(ctx context.Context, offer *offerMsg, r io.Re
 			}
 		}
 
+		var relayUrl, err = c.relayURL()
+		if err != nil {
+			sendErr(fmt.Errorf("Invalid relay URL"))
+			return
+		}
 		transitKey := deriveTransitKey(clientProto.sharedKey, appID)
-		transport := newFileTransport(transitKey, appID, c.relayURL(), disableListener)
+		transport := newFileTransport(transitKey, appID, relayUrl, disableListener)
 		err = transport.listen()
 		if err != nil {
 			sendErr(err)
