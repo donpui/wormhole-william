@@ -150,6 +150,11 @@ const (
 	L2ConnInputEventGotRecord
 )
 
+type L2ConnInputEventS struct {
+	Event L2ConnInputEvent
+	candidate Candidate
+}
+
 const (
 	L2ConnOutputEventAddCandidate = iota
 	L2ConnOutputEventSetManager
@@ -158,6 +163,11 @@ const (
 	L2ConnOutputEventQueueInboundRecord
 	L2ConnOutputEventDeliverRecord
 )
+
+type L2ConnOutputEventS struct {
+	Event L2ConnOutputEvent
+	candidate Candidate
+}
 
 const (
 	Leader   Role = "Leader"
@@ -624,5 +634,48 @@ func (d *dilationProtocol) l2ConnStateMachine(event L2ConnInputEvent) []L2ConnOu
 	default:
 	}
 	log.Printf("L2 Connection FSM transition: %s -> %s\n", currState, nextState)
+	return outputEvents
+}
+
+func (d *dilationProtocol) processL2ConnStateMachine(input L2ConnInputEventS) []L2ConnOutputEventS {
+	outputs := d.l2ConnStateMachine(input.Event)
+	outputEvents := []L2ConnOutputEventS{}
+
+	for output := range outputs {
+		switch output {
+		case L2ConnOutputEventAddCandidate:
+			outputEvents = append(outputEvents, L2ConnOutputEventS{
+				Event: L2ConnOutputEventAddCandidate,
+				candidate: input.candidate,
+			})
+		case L2ConnOutputEventSetManager:
+			outputEvents = append(outputEvents, L2ConnOutputEventS{
+				Event: L2ConnOutputEventSetManager,
+				// XXX there is ready access to manager, do this may not be useful here.
+			})
+		case L2ConnOutputEventCanSendRecords:
+			outputEvents = append(outputEvents, L2ConnOutputEventS{
+				Event: L2ConnOutputEventCanSendRecords,
+				// XXX: this would set a boolean elsewhere?
+			})
+		case L2ConnOutputEventProcessInboundQueue:
+			outputEvents = append(outputEvents, L2ConnOutputEventS{
+				Event: L2ConnOutputEventProcessInboundQueue,
+				// XXX: this is for the outer layers to act on
+			})
+		case L2ConnOutputEventQueueInboundRecord:
+			outputEvents = append(outputEvents, L2ConnOutputEventS{
+				Event: L2ConnOutputEventQueueInboundRecord,
+				// XXX: we shouldn't be copying records here, it is for the I/O later to act on this message.
+			})
+		case L2ConnOutputEventDeliverRecord:
+			outputEvents = append(outputEvents, L2ConnOutputEventS{
+				Event: L2ConnOutputEventDeliverRecord,
+				// XXX: outer later should act on this and send appropriate message along with payload to manager FSM.
+			})
+		default:
+		}
+	}
+
 	return outputEvents
 }
