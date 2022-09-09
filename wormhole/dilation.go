@@ -198,6 +198,14 @@ const (
 	L2RecordOutputEventDecryptMessage
 )
 
+type L2RecordInputEventS struct {
+	Event     L2RecordInputEvent
+}
+
+type L2RecordOutputEventS struct {
+	Event     L2RecordOutputEvent
+}
+
 const (
 	Leader   Role = "Leader"
 	Follower Role = "Follower"
@@ -776,5 +784,35 @@ func (d *dilationProtocol) l2RecordStateMachine(event L2RecordInputEvent) []L2Re
 	default:
 	}
 	log.Printf("L2 Record FSM transition: %s -> %s\n", currState, nextState)
+	return outputEvents
+}
+
+
+func (d *dilationProtocol) processL2RecordStateMachine(input L2RecordInputEventS) []L2RecordOutputEventS {
+	outputs := d.l2RecordStateMachine(input.Event)
+	outputEvents := []L2RecordOutputEventS{}
+
+	for output := range outputs {
+		switch output {
+		case L2RecordOutputEventSendHandshake:
+			outputEvents = append(outputEvents, L2RecordOutputEventS{
+				Event: L2RecordOutputEventSendHandshake,
+			})
+		case L2RecordOutputEventProcessHandshake:
+			outputEvents = append(outputEvents, L2RecordOutputEventS{
+				Event: L2RecordOutputEventProcessHandshake,
+			})
+		case L2RecordOutputEventIgnoreAndSendHandshake:
+			outputEvents = append(outputEvents, L2RecordOutputEventS{
+				Event: L2RecordOutputEventIgnoreAndSendHandshake,
+			})
+		case L2RecordOutputEventDecryptMessage:
+			outputEvents = append(outputEvents, L2RecordOutputEventS{
+				Event: L2RecordOutputEventDecryptMessage,
+			})
+		default:
+		}
+	}
+
 	return outputEvents
 }
