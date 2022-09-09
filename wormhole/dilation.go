@@ -119,8 +119,8 @@ const (
 type Candidate string
 
 type ConnectorInputEventS struct {
-	Event      ConnectorInputEvent // 0 - ListenerReady, 1 - Accept, 2 - AddCandidate, 4 - GotHints, 5 - AddRelay, 6 - Stop 
-	hints   transitHintsV1
+	Event     ConnectorInputEvent // 0 - ListenerReady, 1 - Accept, 2 - AddCandidate, 4 - GotHints, 5 - AddRelay, 6 - Stop
+	hints     transitHintsV1
 	candidate Candidate
 }
 
@@ -133,15 +133,15 @@ const (
 )
 
 type ConnectorOutputEventS struct {
-	Event ConnectorOutputEvent
-	hints  transitHintsV1
+	Event     ConnectorOutputEvent
+	hints     transitHintsV1
 	candidate Candidate
 }
 
 const (
 	L2ConnStateUnselected L2ConnState = "L2ConnStateUnselected"
-	L2ConnStateSelecting = "L2ConnStateSelecting"
-	L2ConnStateSelected = "L2ConnStateSelected"
+	L2ConnStateSelecting              = "L2ConnStateSelecting"
+	L2ConnStateSelected               = "L2ConnStateSelected"
 )
 
 const (
@@ -151,7 +151,7 @@ const (
 )
 
 type L2ConnInputEventS struct {
-	Event L2ConnInputEvent
+	Event     L2ConnInputEvent
 	candidate Candidate
 }
 
@@ -165,7 +165,7 @@ const (
 )
 
 type L2ConnOutputEventS struct {
-	Event L2ConnOutputEvent
+	Event     L2ConnOutputEvent
 	candidate Candidate
 }
 
@@ -561,12 +561,12 @@ func (d *dilationProtocol) processConnectorStateMachine(input ConnectorInputEven
 			})
 		case ConnectorOutputEventSelectAndStopRemaining:
 			outputEvents = append(outputEvents, ConnectorOutputEventS{
-				Event: ConnectorOutputEventSelectAndStopRemaining,
+				Event:     ConnectorOutputEventSelectAndStopRemaining,
 				candidate: input.candidate,
 			})
 		case ConnectorOutputEventConsider:
 			outputEvents = append(outputEvents, ConnectorOutputEventS{
-				Event: ConnectorOutputEventConsider,
+				Event:     ConnectorOutputEventConsider,
 				candidate: input.candidate,
 			})
 		case ConnectorOutputEventUseHints:
@@ -645,7 +645,7 @@ func (d *dilationProtocol) processL2ConnStateMachine(input L2ConnInputEventS) []
 		switch output {
 		case L2ConnOutputEventAddCandidate:
 			outputEvents = append(outputEvents, L2ConnOutputEventS{
-				Event: L2ConnOutputEventAddCandidate,
+				Event:     L2ConnOutputEventAddCandidate,
 				candidate: input.candidate,
 			})
 		case L2ConnOutputEventSetManager:
