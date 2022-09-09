@@ -32,7 +32,8 @@ const (
 	// use cases: (1) receiver enter wrong code, Sender and Receiver get error
 	ERR_WRONG_CODE = "decrypt message failed"
 	// use cases: (1) cannot connect to mailbox/relay
-	ERR_CONNECTION_REFUSED = "connect: connection refused"
+	ERR_CONNECTION_REFUSED  = "connect: connection refused"
+	ERR_NETWORK_UNREACHABLE = "connect: network is unreachable"
 	// use cases: (1) receiver enters an incorrect nameplate
 	ERR_INVALID_NAMEPLATE = "Nameplate is unclaimed"
 )
@@ -66,8 +67,7 @@ type PendingTransfer interface {
 // the error message, refactor this
 func extractErrorCode(fallback C.result_type_t, errorMessage string) C.result_type_t {
 	if fallback == C.SendFileError {
-		if strings.Contains(errorMessage, ERR_CONTEXT_CANCELLED) ||
-			strings.Contains(errorMessage, ERR_CONNECTION_REFUSED) {
+		if strings.Contains(errorMessage, ERR_CONTEXT_CANCELLED) {
 			return C.TransferCancelled
 		} else if strings.Contains(errorMessage, ERR_BROKEN_PIPE) ||
 			strings.Contains(errorMessage, ERR_EOF) ||
@@ -75,11 +75,13 @@ func extractErrorCode(fallback C.result_type_t, errorMessage string) C.result_ty
 			return C.TransferCancelledByReceiver
 		} else if strings.Contains(errorMessage, ERR_WRONG_CODE) {
 			return C.WrongCode
+		} else if strings.Contains(errorMessage, ERR_CONNECTION_REFUSED) ||
+			strings.Contains(errorMessage, ERR_NETWORK_UNREACHABLE) {
+			return C.ConnectionRefused
 		}
 	} else if fallback == C.ReceiveFileError {
 		if strings.Contains(errorMessage, ERR_CONTEXT_CANCELLED) ||
-			strings.Contains(errorMessage, ERR_FAILED_TO_GET_READER) ||
-			strings.Contains(errorMessage, ERR_CONNECTION_REFUSED) {
+			strings.Contains(errorMessage, ERR_FAILED_TO_GET_READER) {
 			return C.TransferCancelled
 		} else if strings.Contains(errorMessage, ERR_UNEXPECTED_EOF) {
 			return C.TransferCancelledBySender
@@ -93,9 +95,22 @@ func extractErrorCode(fallback C.result_type_t, errorMessage string) C.result_ty
 		return C.TransferRejected
 	} else if strings.Contains(errorMessage, ERR_WRONG_CODE) {
 		return C.WrongCode
+	} else if strings.Contains(errorMessage, ERR_CONNECTION_REFUSED) ||
+		strings.Contains(errorMessage, ERR_NETWORK_UNREACHABLE) {
+		return C.ConnectionRefused
 	}
 
 	return fallback
+}
+
+func extractErrorCodeCodeGen(errorCode C.codegen_result_type_t, errorMessage string) C.codegen_result_type_t {
+
+	if strings.Contains(errorMessage, ERR_CONNECTION_REFUSED) ||
+		strings.Contains(errorMessage, ERR_NETWORK_UNREACHABLE) {
+		return C.ConnectionRefused
+	}
+
+	return errorCode
 }
 
 func (wctx *C.wrapped_context_t) Log(message string, args ...interface{}) {
@@ -176,8 +191,9 @@ func (wctx *C.wrapped_context_t) NotifyCodeGenerated(code string) {
 
 func (wctx *C.wrapped_context_t) NotifyCodeGenerationFailure(errorCode C.codegen_result_type_t, errorMessage string) {
 	wctx.Log("Code generation failed. error code:%d, error message:%s", errorCode, errorMessage)
-	wctx.codegen_result.result_type = errorCode
+	wctx.codegen_result.result_type = extractErrorCodeCodeGen(errorCode, errorMessage)
 	wctx.codegen_result.error.error_string = C.CString(errorMessage)
+
 	C.call_notify_codegen(wctx)
 }
 

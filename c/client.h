@@ -36,6 +36,7 @@ typedef enum {
   WrongCode = 7,
   TransferCancelledByReceiver = 8,
   TransferCancelledBySender = 9,
+  ConnectionRefused = 10,
 } result_type_t;
 
 typedef struct {
@@ -46,8 +47,9 @@ typedef struct {
 
 typedef enum {
   CodeGenSuccessful = 0,
-  FailedToGetClient = 1,
-  CodeGenerationFailed = 2
+  // keep unique enum for all errors
+  FailedToGetClient = 11,
+  CodeGenerationFailed = 12
 } codegen_result_type_t;
 
 typedef struct {
