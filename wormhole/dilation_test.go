@@ -40,7 +40,7 @@ func TestDilationRole(t *testing.T) {
 	side1 := "10000"
 	d1 := &dilationProtocol{
 		versions: []string{"1"},
-		side: side1,
+		side:     side1,
 	}
 
 	side2 := "10001"
