@@ -22,6 +22,8 @@ type dilationProtocol struct {
 	connectorStateMu sync.Mutex
 	l2ConnState      L2ConnState
 	l2ConnStateMu    sync.Mutex
+	l2RecordState    L2RecordState
+	l2RecordStateMu  sync.Mutex
 	msgInput         chan []byte
 	role             Role
 	side             string
@@ -169,6 +171,33 @@ type L2ConnOutputEventS struct {
 	candidate Candidate
 }
 
+type L2RecordState string
+type L2RecordInputEvent int
+type L2RecordOutputEvent int
+
+const (
+	L2RecordStateNoRoleSet L2RecordState = "L2RecordStateNoRoleSet"
+	L2RecordStateWantPrologueLeader = "L2RecordStateWantPrologueLeader"
+	L2RecordStateWantPrologueFollower = "L2RecordStateWantPrologueFollower"
+	L2RecordStateWantHandshakeLeader = "L2RecordStateWantHandshakeLeader"
+	L2RecordStateWantHandshakeFollower = "L2RecordStateWantHandshakeFollower"
+	L2RecordStateWantMessage = "L2RecordStateWantMessage"
+)
+
+const (
+	L2RecordInputEventSetRoleLeader = iota
+	L2RecordInputEventSetRoleFollower
+	L2RecordInputEventGotPrologue
+	L2RecordInputEventGotFrame
+)
+
+const (
+	L2RecordOutputEventSendHandshake = iota
+	L2RecordOutputEventProcessHandshake
+	L2RecordOutputEventIgnoreAndSendHandshake
+	L2RecordOutputEventDecryptMessage
+)
+
 const (
 	Leader   Role = "Leader"
 	Follower Role = "Follower"
@@ -287,6 +316,13 @@ func (d *dilationProtocol) l2ConnToNewState(newState L2ConnState) {
 	defer d.l2ConnStateMu.Unlock()
 
 	d.l2ConnState = newState
+}
+
+func (d *dilationProtocol) l2RecordToNewState(newState L2RecordState) {
+	d.l2RecordStateMu.Lock()
+	defer d.l2RecordStateMu.Unlock()
+
+	d.l2RecordState = newState
 }
 
 func (d *dilationProtocol) getState() ManagerState {
@@ -677,5 +713,68 @@ func (d *dilationProtocol) processL2ConnStateMachine(input L2ConnInputEventS) []
 		}
 	}
 
+	return outputEvents
+}
+
+func (d *dilationProtocol) l2RecordStateMachine(event L2RecordInputEvent) []L2RecordOutputEvent {
+	var currState L2RecordState
+	var nextState L2RecordState
+	var outputEvents []L2RecordOutputEvent
+
+	currState = d.l2RecordState
+	nextState = d.l2RecordState
+
+	switch event {
+	case L2RecordInputEventSetRoleLeader:
+		switch currState {
+		case L2RecordStateNoRoleSet:
+			nextState = L2RecordStateWantPrologueLeader
+			d.l2RecordToNewState(nextState)
+		default:
+		}
+	case L2RecordInputEventSetRoleFollower:
+		switch currState {
+		case L2RecordStateNoRoleSet:
+			nextState = L2RecordStateWantPrologueFollower
+			d.l2RecordToNewState(nextState)
+		default:
+		}
+	case L2RecordInputEventGotPrologue:
+		switch currState {
+		case L2RecordStateWantPrologueLeader:
+			nextState = L2RecordStateWantHandshakeLeader
+			d.l2RecordToNewState(nextState)
+			outputEvents = []L2RecordOutputEvent{
+				L2RecordOutputEventSendHandshake,
+			}
+		case L2RecordStateWantPrologueFollower:
+			nextState = L2RecordStateWantHandshakeFollower
+			d.l2RecordToNewState(nextState)
+		default:
+		}
+	case L2RecordInputEventGotFrame:
+		switch currState {
+		case L2RecordStateWantHandshakeLeader:
+			nextState = L2RecordStateWantMessage
+			d.l2RecordToNewState(nextState)
+			outputEvents = []L2RecordOutputEvent{
+				L2RecordOutputEventProcessHandshake,
+			}
+		case L2RecordStateWantHandshakeFollower:
+			nextState = L2RecordStateWantMessage
+			d.l2RecordToNewState(nextState)
+			outputEvents = []L2RecordOutputEvent{
+				L2RecordOutputEventProcessHandshake,
+				L2RecordOutputEventIgnoreAndSendHandshake,
+			}
+		case L2RecordStateWantMessage:
+			outputEvents = []L2RecordOutputEvent{
+				L2RecordOutputEventDecryptMessage,
+			}
+		default:
+		}
+	default:
+	}
+	log.Printf("L2 Record FSM transition: %s -> %s\n", currState, nextState)
 	return outputEvents
 }
