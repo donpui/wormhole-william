@@ -20,7 +20,8 @@ type dilationProtocol struct {
 	managerInputEv   chan ManagerInputEvent
 	connectorState   ConnectorState
 	connectorStateMu sync.Mutex
-	connectorInputEv chan ConnectorInputEvent
+	l2ConnState      L2ConnState
+	l2ConnStateMu    sync.Mutex
 	msgInput         chan []byte
 	role             Role
 	side             string
@@ -49,6 +50,10 @@ type ManagerOutputEvent int
 type ConnectorState string
 type ConnectorInputEvent int
 type ConnectorOutputEvent int
+
+type L2ConnState string
+type L2ConnInputEvent int
+type L2ConnOutputEvent int
 
 const (
 	DilationNotNegotiated DilationState = -1
@@ -132,6 +137,27 @@ type ConnectorOutputEventS struct {
 	hints  transitHintsV1
 	candidate Candidate
 }
+
+const (
+	L2ConnStateUnselected L2ConnState = "L2ConnStateUnselected"
+	L2ConnStateSelecting = "L2ConnStateSelecting"
+	L2ConnStateSelected = "L2ConnStateSelected"
+)
+
+const (
+	L2ConnInputEventGotKCM = iota
+	L2ConnInputEventSelect
+	L2ConnInputEventGotRecord
+)
+
+const (
+	L2ConnOutputEventAddCandidate = iota
+	L2ConnOutputEventSetManager
+	L2ConnOutputEventCanSendRecords
+	L2ConnOutputEventProcessInboundQueue
+	L2ConnOutputEventQueueInboundRecord
+	L2ConnOutputEventDeliverRecord
+)
 
 const (
 	Leader   Role = "Leader"
@@ -245,6 +271,14 @@ func (d *dilationProtocol) connectorToNewState(newState ConnectorState) {
 
 	d.connectorState = newState
 }
+
+func (d *dilationProtocol) l2ConnToNewState(newState L2ConnState) {
+	d.l2ConnStateMu.Lock()
+	defer d.l2ConnStateMu.Unlock()
+
+	d.l2ConnState = newState
+}
+
 func (d *dilationProtocol) getState() ManagerState {
 	d.managerStateMu.Lock()
 	defer d.managerStateMu.Unlock()
@@ -538,5 +572,57 @@ func (d *dilationProtocol) processConnectorStateMachine(input ConnectorInputEven
 		}
 	}
 
+	return outputEvents
+}
+
+// L2 connection state machine. At any point, there is only one active
+// L2 connection. Leader and Follower initiate many simultaneous
+// connections of which some of them would connect and handshake. One
+// of those would be selected by the leader.
+func (d *dilationProtocol) l2ConnStateMachine(event L2ConnInputEvent) []L2ConnOutputEvent {
+	var currState L2ConnState
+	var nextState L2ConnState
+	var outputEvents []L2ConnOutputEvent
+
+	currState = d.l2ConnState
+	nextState = d.l2ConnState
+
+	switch event {
+	case L2ConnInputEventGotKCM:
+		switch currState {
+		case L2ConnStateUnselected:
+			nextState = L2ConnStateSelecting
+			d.l2ConnToNewState(nextState)
+			outputEvents = []L2ConnOutputEvent{
+				L2ConnOutputEventAddCandidate,
+			}
+		default:
+		}
+	case L2ConnInputEventSelect:
+		switch currState {
+		case L2ConnStateSelecting:
+			nextState = L2ConnStateSelected
+			d.l2ConnToNewState(nextState)
+			outputEvents = []L2ConnOutputEvent{
+				L2ConnOutputEventSetManager,
+				L2ConnOutputEventCanSendRecords,
+				L2ConnOutputEventProcessInboundQueue,
+			}
+		}
+	case L2ConnInputEventGotRecord:
+		switch currState {
+		case L2ConnStateSelecting:
+			outputEvents = []L2ConnOutputEvent{
+				L2ConnOutputEventQueueInboundRecord,
+			}
+		case L2ConnStateSelected:
+			outputEvents = []L2ConnOutputEvent{
+				L2ConnOutputEventDeliverRecord,
+			}
+		default:
+		}
+	default:
+	}
+	log.Printf("L2 Connection FSM transition: %s -> %s\n", currState, nextState)
 	return outputEvents
 }
