@@ -53,8 +53,8 @@ type Client struct {
 	// If VerifierOk returns false the transmission will be aborted.
 	VerifierOk func(verifier string) bool
 
-	// EnableDilation specifies whether this client is capable of using
-	// dilation.
+	// EnableDilation specifies whether this client is capable of
+	// using dilation.
 	EnableDilation bool
 }
 
@@ -217,17 +217,17 @@ type offerFile struct {
 }
 
 type genericMessage struct {
-	Offer       *offerMsg       `json:"offer,omitempty"`
-	Answer      *answerMsg      `json:"answer,omitempty"`
-	Transit     *transitMsg     `json:"transit,omitempty"`
-	Error       *string         `json:"error,omitempty"`
+	Offer   *offerMsg   `json:"offer,omitempty"`
+	Answer  *answerMsg  `json:"answer,omitempty"`
+	Transit *transitMsg `json:"transit,omitempty"`
+	Error   *string     `json:"error,omitempty"`
 }
 
 // payload of versions message
 type versionsMsg struct {
-	CanDilate         []string `json:"can-dilate, omitempty"`
+	CanDilate         []string          `json:"can-dilate, omitempty"`
 	DilationAbilities []dilationAbility `json:"dilation-abilties"`
-	AppVersions       *appVersionsMsg `json:"app_versions,omitempty"`
+	AppVersions       *appVersionsMsg   `json:"app_versions,omitempty"`
 }
 
 type dilationAbility struct {
@@ -458,18 +458,18 @@ func (c *msgCollector) collect(ch <-chan rendezvous.MailboxEvent) {
 }
 
 type clientProtocol struct {
-	sharedKey      []byte
-	phaseCounter   int
-	ch             <-chan rendezvous.MailboxEvent
-	rc             *rendezvous.Client
-	spake          *gospake2.SPAKE2
-	sideID         string
-	appID          string
-	dilation       *dilationProtocol
+	sharedKey    []byte
+	phaseCounter int
+	ch           <-chan rendezvous.MailboxEvent
+	rc           *rendezvous.Client
+	spake        *gospake2.SPAKE2
+	sideID       string
+	appID        string
+	dilation     *dilationProtocol
 }
 
 func newClientProtocol(ctx context.Context, rc *rendezvous.Client, sideID, appID string, enableDilation bool) *clientProtocol {
-	var recvChan  <-chan rendezvous.MailboxEvent
+	var recvChan <-chan rendezvous.MailboxEvent
 	if rc != nil {
 		recvChan = rc.MsgChan(ctx)
 	}
@@ -477,16 +477,16 @@ func newClientProtocol(ctx context.Context, rc *rendezvous.Client, sideID, appID
 	var dilationParams *dilationProtocol
 	if enableDilation {
 		dilationParams = &dilationProtocol{
-			versions: []string{"1" },
-			state: DilationNotNegotiated,
+			versions:     []string{"1"},
+			state:        DilationNotNegotiated,
 			managerState: ManagerStateWaiting,
 		}
 	}
 	return &clientProtocol{
-		ch:     recvChan,
-		rc:     rc,
-		sideID: sideID,
-		appID:  appID,
+		ch:       recvChan,
+		rc:       rc,
+		sideID:   sideID,
+		appID:    appID,
 		dilation: dilationParams,
 	}
 }
@@ -535,10 +535,10 @@ func (cc *clientProtocol) Verifier() ([]byte, error) {
 }
 
 func buildDilationAbilities(dilationAbilities []string) []dilationAbility {
-	abilities := []dilationAbility { }
+	abilities := []dilationAbility{}
 
-	for _, ability := range(dilationAbilities) {
-		abilities = append(abilities, dilationAbility{ Type: ability })
+	for _, ability := range dilationAbilities {
+		abilities = append(abilities, dilationAbility{Type: ability})
 	}
 
 	return abilities
@@ -546,9 +546,9 @@ func buildDilationAbilities(dilationAbilities []string) []dilationAbility {
 
 func genVersionsPayload(versions []string, abilities []string, appversions *appVersionsMsg) versionsMsg {
 	return versionsMsg{
-		CanDilate: versions,
+		CanDilate:         versions,
 		DilationAbilities: buildDilationAbilities(abilities),
-		AppVersions: appversions,
+		AppVersions:       appversions,
 	}
 }
 
@@ -559,7 +559,7 @@ func (cc *clientProtocol) WriteVersion(ctx context.Context, canDilate bool) erro
 
 	if canDilate {
 		versions = cc.dilation.versions
-		abilities = []string{ "direct-tcp-v1", "relay-v1" }
+		abilities = []string{"direct-tcp-v1", "relay-v1"}
 	}
 
 	verInfo := genVersionsPayload(versions, abilities, &appVersionsMsg{})
