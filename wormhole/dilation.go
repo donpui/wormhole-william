@@ -236,6 +236,22 @@ const (
 	L2FramerOutputEventParseRelayOk
 )
 
+type L2FramerInputEventS struct {
+	Event     L2FramerInputEvent
+	RelayHandshake string
+	InboundPrologue string
+	ExpectedRelayHandshake string
+}
+
+type L2FramerOutputEventS struct {
+	Event     L2FramerOutputEvent
+	CanSendFrames bool
+	OutboundRelayHandshake string
+	ExpectedRelayHandshake string
+	IsGoodPrologue bool
+	IsGoodRelay bool
+}
+
 const (
 	Leader   Role = "Leader"
 	Follower Role = "Follower"
@@ -928,5 +944,55 @@ func (d *dilationProtocol) l2FramerStateMachine(event L2FramerInputEvent) []L2Fr
 	default:
 	}
 	log.Printf("L2 Framer FSM transition: %s -> %s\n", currState, nextState)
+	return outputEvents
+}
+
+func (d *dilationProtocol) processL2FramerStateMachine(input L2FramerInputEventS) []L2FramerOutputEventS {
+	outputs := d.l2FramerStateMachine(input.Event)
+	outputEvents := []L2FramerOutputEventS{}
+
+	for output := range outputs {
+		switch output {
+		case L2FramerOutputEventCanSendFrames:
+			outputEvents = append(outputEvents, L2FramerOutputEventS{
+				Event: L2FramerOutputEventCanSendFrames,
+				CanSendFrames: true,
+			})
+		case L2FramerOutputEventSendPrologue:
+			outputEvents = append(outputEvents, L2FramerOutputEventS{
+				Event: L2FramerOutputEventSendPrologue,
+			})
+		case L2FramerOutputEventStoreRelayHandshake:
+			outputEvents = append(outputEvents, L2FramerOutputEventS{
+				Event: L2FramerOutputEventStoreRelayHandshake,
+				OutboundRelayHandshake: input.RelayHandshake,
+				ExpectedRelayHandshake: "ok\n",
+			})
+		case L2FramerOutputEventParsePrologue:
+			outputEvents = append(outputEvents, L2FramerOutputEventS{
+				Event: L2FramerOutputEventParsePrologue,
+				IsGoodPrologue: input.InboundPrologue == "prologue",
+			})
+		case L2FramerOutputEventParseFrame:
+			// XXX input is a "buffer", output is a
+			// "frame" without the length prefix. Should
+			// this be done here or outside? And what do
+			// we do if parsing fails?
+			outputEvents = append(outputEvents, L2FramerOutputEventS{
+				Event: L2FramerOutputEventParseFrame,
+			})
+		case L2FramerOutputEventSendRelayHandshake:
+			outputEvents = append(outputEvents, L2FramerOutputEventS{
+				Event: L2FramerOutputEventSendRelayHandshake,
+			})
+		case L2FramerOutputEventParseRelayOk:
+			outputEvents = append(outputEvents, L2FramerOutputEventS{
+				Event: L2FramerOutputEventParseRelayOk,
+				IsGoodRelay: input.ExpectedRelayHandshake == "relay_ok",
+			})
+		default:
+		}
+	}
+
 	return outputEvents
 }
