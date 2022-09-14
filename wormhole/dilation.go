@@ -12,23 +12,25 @@ import (
 )
 
 type dilationProtocol struct {
-	versions         []string
-	state            DilationState
-	stateMu          sync.Mutex
-	managerState     ManagerState
-	managerStateMu   sync.Mutex
-	managerInputEv   chan ManagerInputEvent
-	connectorState   ConnectorState
-	connectorStateMu sync.Mutex
-	l2ConnState      L2ConnState
-	l2ConnStateMu    sync.Mutex
-	l2RecordState    L2RecordState
-	l2RecordStateMu  sync.Mutex
-	l2FramerState    L2FramerState
-	l2FramerStateMu  sync.Mutex
-	msgInput         chan []byte
-	role             Role
-	side             string
+	versions          []string
+	state             DilationState
+	stateMu           sync.Mutex
+	managerState      ManagerState
+	managerStateMu    sync.Mutex
+	managerInputEv    chan ManagerInputEvent
+	connectorState    ConnectorState
+	connectorStateMu  sync.Mutex
+	l2ConnState       L2ConnState
+	l2ConnStateMu     sync.Mutex
+	l2RecordState     L2RecordState
+	l2RecordStateMu   sync.Mutex
+	l2FramerState     L2FramerState
+	l2FramerStateMu   sync.Mutex
+	subchannelState   SubchannelState
+	subchannelStateMu sync.Mutex
+	msgInput          chan []byte
+	role              Role
+	side              string
 	// The code mostly sans-io approach: functional core,
 	// imperative shell.
 	//
@@ -384,6 +386,13 @@ func (d *dilationProtocol) l2FramerToNewState(newState L2FramerState) {
 	defer d.l2FramerStateMu.Unlock()
 
 	d.l2FramerState = newState
+}
+
+func (d *dilationProtocol) subchannelToNewState(newState SubchannelState) {
+	d.subchannelStateMu.Lock()
+	defer d.subchannelStateMu.Unlock()
+
+	d.subchannelState = newState
 }
 
 func (d *dilationProtocol) getState() ManagerState {
@@ -992,5 +1001,167 @@ func (d *dilationProtocol) processL2FramerStateMachine(input L2FramerInputEventS
 		}
 	}
 
+	return outputEvents
+}
+
+type SubchannelState string
+type SubchannelInputEvent int
+type SubchannelOutputEvent int
+
+// subchannel states
+const (
+	SubchannelStateUnconnected SubchannelState = "SubchannelStateUnconnected"
+	SubchannelStateOpenFull                    = "SubchannelStateOpenFull"
+	SubchannelStateOpenHalf                    = "SubchannelStateOpenHalf"
+	SubchannelStateClosing                     = "SubchannelStateClosing"
+	SubchannelStateClosed                      = "SubchannelStateClosed"
+	SubchannelStateWriteClosed                 = "SubchannelStateWriteClosed"
+	SubchannelStateReadClosed                  = "SubchannelStateReadClosed"
+)
+
+const (
+	SubchannelInputEventConnectProtocolFull = iota
+	SubchannelInputEventConnectProtocolHalf
+	SubchannelInputEventRemoteData
+	SubchannelInputEventRemoteClose
+	SubchannelInputEventLocalData
+	SubchannelInputEventLocalClose
+)
+
+const (
+	SubchannelOutputEventQueueRemoteData = iota
+	SubchannelOutputEventQueueRemoteClose
+	SubchannelOutputEventSendData
+	SubchannelOutputEventSignalDataReceived
+	SubchannelOutputEventSendClose
+	SubchannelOutputEventSignalWriteConnLost
+	SubchannelOutputEventSignalReadConnLost
+	SubchannelOutputEventErrorClosedWrite
+	SubchannelOutputEventErrorClosedClose
+	SubchannelOutputEventCloseSubchannel
+	SubchannelOutputEventSignalConnLost
+)
+
+func (d *dilationProtocol) subchannelStateMachine(event SubchannelInputEvent) []SubchannelOutputEvent {
+	var currState SubchannelState
+	var nextState SubchannelState
+	var outputEvents []SubchannelOutputEvent
+
+	currState = d.subchannelState
+	nextState = d.subchannelState
+
+	switch event {
+	case SubchannelInputEventRemoteData:
+		switch currState {
+		case SubchannelStateUnconnected:
+			outputEvents = []SubchannelOutputEvent{
+				SubchannelOutputEventQueueRemoteData,
+			}
+		case SubchannelStateOpenFull, SubchannelStateOpenHalf, SubchannelStateClosing, SubchannelStateWriteClosed:
+			outputEvents = []SubchannelOutputEvent{
+				SubchannelOutputEventSignalDataReceived,
+			}
+		default:
+			log.Printf("subchannel fsm: false event SubchannelInputEventRemoteData at state %s\n", currState)
+		}
+	case SubchannelInputEventConnectProtocolFull:
+		switch currState {
+		case SubchannelStateUnconnected:
+			nextState = SubchannelStateOpenFull
+			d.subchannelToNewState(nextState)
+		default:
+			log.Printf("subchannel fsm: false event SubchannelInputEventConnectProtocolFull at state %s\n", currState)
+		}
+	case SubchannelInputEventConnectProtocolHalf:
+		switch currState {
+		case SubchannelStateUnconnected:
+			nextState = SubchannelStateOpenHalf
+			d.subchannelToNewState(nextState)
+		default:
+			log.Printf("subchannel fsm: false event SubchannelInputEventConnectProtocolHalf at state %s\n", currState)
+		}
+	case SubchannelInputEventRemoteClose:
+		switch currState {
+		case SubchannelStateUnconnected:
+			outputEvents = []SubchannelOutputEvent{
+				SubchannelOutputEventQueueRemoteClose,
+			}
+		case SubchannelStateOpenFull:
+			nextState = SubchannelStateClosed
+			d.subchannelToNewState(nextState)
+			outputEvents = []SubchannelOutputEvent{
+				SubchannelOutputEventSendClose,
+				SubchannelOutputEventCloseSubchannel,
+				SubchannelOutputEventSignalConnLost,
+			}
+		case SubchannelStateOpenHalf:
+			nextState = SubchannelStateReadClosed
+			d.subchannelToNewState(nextState)
+			outputEvents = []SubchannelOutputEvent{
+				SubchannelOutputEventSignalReadConnLost,
+			}
+		case SubchannelStateClosing:
+			nextState = SubchannelStateReadClosed
+			d.subchannelToNewState(nextState)
+			outputEvents = []SubchannelOutputEvent{
+				SubchannelOutputEventCloseSubchannel,
+				SubchannelOutputEventSignalConnLost,
+			}
+		case SubchannelStateWriteClosed:
+			nextState = SubchannelStateReadClosed
+			d.subchannelToNewState(nextState)
+			outputEvents = []SubchannelOutputEvent{
+				SubchannelOutputEventCloseSubchannel,
+				SubchannelOutputEventSignalReadConnLost,
+			}
+		default:
+			log.Printf("subchannel fsm: false event SubchannelInputEventRemoteClose at state %s\n", currState)
+		}
+	case SubchannelInputEventLocalData:
+		switch currState {
+		case SubchannelStateOpenFull, SubchannelStateOpenHalf, SubchannelStateReadClosed:
+			outputEvents = []SubchannelOutputEvent{
+				SubchannelOutputEventSendData,
+			}
+		case SubchannelStateClosing, SubchannelStateWriteClosed:
+			outputEvents = []SubchannelOutputEvent{
+				SubchannelOutputEventErrorClosedWrite,
+			}
+		default:
+			log.Printf("subchannel fsm: false event SubchannelInputEventLocalData at state %s\n", currState)
+		}
+	case SubchannelInputEventLocalClose:
+		switch currState {
+		case SubchannelStateOpenFull:
+			nextState = SubchannelStateClosing
+			d.subchannelToNewState(nextState)
+			outputEvents = []SubchannelOutputEvent{
+				SubchannelOutputEventSendClose,
+			}
+		case SubchannelStateOpenHalf:
+			nextState = SubchannelStateWriteClosed
+			d.subchannelToNewState(nextState)
+			outputEvents = []SubchannelOutputEvent{
+				SubchannelOutputEventSignalWriteConnLost,
+				SubchannelOutputEventSendClose,
+			}
+		case SubchannelStateClosing, SubchannelStateWriteClosed:
+			outputEvents = []SubchannelOutputEvent{
+				SubchannelOutputEventErrorClosedClose,
+			}
+		case SubchannelStateReadClosed:
+			nextState = SubchannelStateClosed
+			d.subchannelToNewState(nextState)
+			outputEvents = []SubchannelOutputEvent{
+				SubchannelOutputEventSendClose,
+				SubchannelOutputEventCloseSubchannel,
+				SubchannelOutputEventSignalWriteConnLost,
+			}
+		default:
+			log.Printf("subchannel fsm: false event SubchannelInputEventLocalClose at state %s\n", currState)
+		}
+	default:
+	}
+	log.Printf("Subchannel FSM transition: %s -> %s\n", currState, nextState)
 	return outputEvents
 }
