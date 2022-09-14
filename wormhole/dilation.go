@@ -24,6 +24,8 @@ type dilationProtocol struct {
 	l2ConnStateMu    sync.Mutex
 	l2RecordState    L2RecordState
 	l2RecordStateMu  sync.Mutex
+	l2FramerState    L2FramerState
+	l2FramerStateMu  sync.Mutex
 	msgInput         chan []byte
 	role             Role
 	side             string
@@ -206,6 +208,34 @@ type L2RecordOutputEventS struct {
 	Event     L2RecordOutputEvent
 }
 
+type L2FramerState string
+type L2FramerInputEvent int
+type L2FramerOutputEvent int
+
+const (
+	L2FramerStateWantPrologue L2FramerState = "L2FramerStateWantPrologue"
+	L2FramerStateWantFrame = "L2FramerStateWantFrame"
+	L2FramerStateWantRelay = "L2FramerStateWantRelay"
+)
+
+const (
+	L2FramerInputEventGotPrologue = iota
+	L2FramerInputEventConnectionMade
+	L2FramerInputEventUseRelay
+	L2FramerInputEventParse
+	L2FramerInputEventGotRelayOk
+)
+
+const (
+	L2FramerOutputEventCanSendFrames = iota
+	L2FramerOutputEventSendPrologue
+	L2FramerOutputEventStoreRelayHandshake
+	L2FramerOutputEventParsePrologue
+	L2FramerOutputEventParseFrame
+	L2FramerOutputEventSendRelayHandshake
+	L2FramerOutputEventParseRelayOk
+)
+
 const (
 	Leader   Role = "Leader"
 	Follower Role = "Follower"
@@ -331,6 +361,13 @@ func (d *dilationProtocol) l2RecordToNewState(newState L2RecordState) {
 	defer d.l2RecordStateMu.Unlock()
 
 	d.l2RecordState = newState
+}
+
+func (d *dilationProtocol) l2FramerToNewState(newState L2FramerState) {
+	d.l2FramerStateMu.Lock()
+	defer d.l2FramerStateMu.Unlock()
+
+	d.l2FramerState = newState
 }
 
 func (d *dilationProtocol) getState() ManagerState {
@@ -814,5 +851,82 @@ func (d *dilationProtocol) processL2RecordStateMachine(input L2RecordInputEventS
 		}
 	}
 
+	return outputEvents
+}
+
+
+func (d *dilationProtocol) l2FramerStateMachine(event L2FramerInputEvent) []L2FramerOutputEvent {
+	var currState L2FramerState
+	var nextState L2FramerState
+	var outputEvents []L2FramerOutputEvent
+
+	currState = d.l2FramerState
+	nextState = d.l2FramerState
+
+	switch event {
+	case L2FramerInputEventGotPrologue:
+		switch currState {
+		case L2FramerStateWantPrologue:
+			nextState = L2FramerStateWantFrame
+			d.l2FramerToNewState(nextState)
+			outputEvents = []L2FramerOutputEvent{
+				L2FramerOutputEventCanSendFrames,
+			}
+		default:
+		}
+	case L2FramerInputEventConnectionMade:
+		switch currState {
+		case L2FramerStateWantPrologue:
+			outputEvents = []L2FramerOutputEvent{
+				L2FramerOutputEventSendPrologue,
+			}
+		case L2FramerStateWantRelay:
+			outputEvents = []L2FramerOutputEvent{
+				L2FramerOutputEventSendRelayHandshake,
+			}
+		default:
+		}
+	case L2FramerInputEventUseRelay:
+		switch currState {
+		case L2FramerStateWantPrologue:
+			nextState = L2FramerStateWantRelay
+			d.l2FramerToNewState(nextState)
+			outputEvents = []L2FramerOutputEvent{
+				L2FramerOutputEventStoreRelayHandshake,
+			}
+		default:
+		}
+	case L2FramerInputEventParse:
+		switch currState {
+		case L2FramerStateWantPrologue:
+			outputEvents = []L2FramerOutputEvent{
+				L2FramerOutputEventParsePrologue,
+			}
+		case L2FramerStateWantFrame:
+			outputEvents = []L2FramerOutputEvent{
+				L2FramerOutputEventParseFrame,
+			}
+		case L2FramerStateWantRelay:
+			outputEvents = []L2FramerOutputEvent{
+				L2FramerOutputEventParseRelayOk,
+			}
+		default:
+		}
+	case L2FramerInputEventGotRelayOk:
+		switch currState {
+		case L2FramerStateWantPrologue:
+			switch currState {
+			case L2FramerStateWantPrologue:
+				nextState = L2FramerStateWantRelay
+				outputEvents = []L2FramerOutputEvent{
+					L2FramerOutputEventSendPrologue,
+				}
+			default:
+			}
+		default:
+		}
+	default:
+	}
+	log.Printf("L2 Framer FSM transition: %s -> %s\n", currState, nextState)
 	return outputEvents
 }
