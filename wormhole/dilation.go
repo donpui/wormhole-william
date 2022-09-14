@@ -178,12 +178,12 @@ type L2RecordInputEvent int
 type L2RecordOutputEvent int
 
 const (
-	L2RecordStateNoRoleSet L2RecordState = "L2RecordStateNoRoleSet"
-	L2RecordStateWantPrologueLeader = "L2RecordStateWantPrologueLeader"
-	L2RecordStateWantPrologueFollower = "L2RecordStateWantPrologueFollower"
-	L2RecordStateWantHandshakeLeader = "L2RecordStateWantHandshakeLeader"
-	L2RecordStateWantHandshakeFollower = "L2RecordStateWantHandshakeFollower"
-	L2RecordStateWantMessage = "L2RecordStateWantMessage"
+	L2RecordStateNoRoleSet             L2RecordState = "L2RecordStateNoRoleSet"
+	L2RecordStateWantPrologueLeader                  = "L2RecordStateWantPrologueLeader"
+	L2RecordStateWantPrologueFollower                = "L2RecordStateWantPrologueFollower"
+	L2RecordStateWantHandshakeLeader                 = "L2RecordStateWantHandshakeLeader"
+	L2RecordStateWantHandshakeFollower               = "L2RecordStateWantHandshakeFollower"
+	L2RecordStateWantMessage                         = "L2RecordStateWantMessage"
 )
 
 const (
@@ -201,11 +201,11 @@ const (
 )
 
 type L2RecordInputEventS struct {
-	Event     L2RecordInputEvent
+	Event L2RecordInputEvent
 }
 
 type L2RecordOutputEventS struct {
-	Event     L2RecordOutputEvent
+	Event L2RecordOutputEvent
 }
 
 type L2FramerState string
@@ -214,8 +214,8 @@ type L2FramerOutputEvent int
 
 const (
 	L2FramerStateWantPrologue L2FramerState = "L2FramerStateWantPrologue"
-	L2FramerStateWantFrame = "L2FramerStateWantFrame"
-	L2FramerStateWantRelay = "L2FramerStateWantRelay"
+	L2FramerStateWantFrame                  = "L2FramerStateWantFrame"
+	L2FramerStateWantRelay                  = "L2FramerStateWantRelay"
 )
 
 const (
@@ -237,19 +237,19 @@ const (
 )
 
 type L2FramerInputEventS struct {
-	Event     L2FramerInputEvent
-	RelayHandshake string
-	InboundPrologue string
+	Event                  L2FramerInputEvent
+	RelayHandshake         string
+	InboundPrologue        string
 	ExpectedRelayHandshake string
 }
 
 type L2FramerOutputEventS struct {
-	Event     L2FramerOutputEvent
-	CanSendFrames bool
+	Event                  L2FramerOutputEvent
+	CanSendFrames          bool
 	OutboundRelayHandshake string
 	ExpectedRelayHandshake string
-	IsGoodPrologue bool
-	IsGoodRelay bool
+	IsGoodPrologue         bool
+	IsGoodRelay            bool
 }
 
 const (
@@ -840,7 +840,6 @@ func (d *dilationProtocol) l2RecordStateMachine(event L2RecordInputEvent) []L2Re
 	return outputEvents
 }
 
-
 func (d *dilationProtocol) processL2RecordStateMachine(input L2RecordInputEventS) []L2RecordOutputEventS {
 	outputs := d.l2RecordStateMachine(input.Event)
 	outputEvents := []L2RecordOutputEventS{}
@@ -869,7 +868,6 @@ func (d *dilationProtocol) processL2RecordStateMachine(input L2RecordInputEventS
 
 	return outputEvents
 }
-
 
 func (d *dilationProtocol) l2FramerStateMachine(event L2FramerInputEvent) []L2FramerOutputEvent {
 	var currState L2FramerState
@@ -955,7 +953,7 @@ func (d *dilationProtocol) processL2FramerStateMachine(input L2FramerInputEventS
 		switch output {
 		case L2FramerOutputEventCanSendFrames:
 			outputEvents = append(outputEvents, L2FramerOutputEventS{
-				Event: L2FramerOutputEventCanSendFrames,
+				Event:         L2FramerOutputEventCanSendFrames,
 				CanSendFrames: true,
 			})
 		case L2FramerOutputEventSendPrologue:
@@ -964,13 +962,13 @@ func (d *dilationProtocol) processL2FramerStateMachine(input L2FramerInputEventS
 			})
 		case L2FramerOutputEventStoreRelayHandshake:
 			outputEvents = append(outputEvents, L2FramerOutputEventS{
-				Event: L2FramerOutputEventStoreRelayHandshake,
+				Event:                  L2FramerOutputEventStoreRelayHandshake,
 				OutboundRelayHandshake: input.RelayHandshake,
 				ExpectedRelayHandshake: "ok\n",
 			})
 		case L2FramerOutputEventParsePrologue:
 			outputEvents = append(outputEvents, L2FramerOutputEventS{
-				Event: L2FramerOutputEventParsePrologue,
+				Event:          L2FramerOutputEventParsePrologue,
 				IsGoodPrologue: input.InboundPrologue == "prologue",
 			})
 		case L2FramerOutputEventParseFrame:
@@ -987,7 +985,7 @@ func (d *dilationProtocol) processL2FramerStateMachine(input L2FramerInputEventS
 			})
 		case L2FramerOutputEventParseRelayOk:
 			outputEvents = append(outputEvents, L2FramerOutputEventS{
-				Event: L2FramerOutputEventParseRelayOk,
+				Event:       L2FramerOutputEventParseRelayOk,
 				IsGoodRelay: input.ExpectedRelayHandshake == "relay_ok",
 			})
 		default:
