@@ -1165,3 +1165,79 @@ func (d *dilationProtocol) subchannelStateMachine(event SubchannelInputEvent) []
 	log.Printf("Subchannel FSM transition: %s -> %s\n", currState, nextState)
 	return outputEvents
 }
+
+type SubchannelInputEventS struct {
+	Event                  SubchannelInputEvent
+}
+
+type SubchannelOutputEventS struct {
+	Event                  SubchannelOutputEvent
+	PendingRemoteClose     bool
+}
+
+func (d *dilationProtocol) processSubchannelStateMachine(input SubchannelInputEventS) []SubchannelOutputEventS {
+	outputs := d.subchannelStateMachine(input.Event)
+	outputEvents := []SubchannelOutputEventS{}
+
+	for output := range outputs {
+		switch output {
+		case SubchannelOutputEventQueueRemoteData:
+			outputEvents = append(outputEvents, SubchannelOutputEventS{
+				Event: SubchannelOutputEventQueueRemoteData,
+				// XXX push the data into queue, create entries in input and output types
+			})
+		case SubchannelOutputEventQueueRemoteClose:
+			outputEvents = append(outputEvents, SubchannelOutputEventS{
+				Event: SubchannelOutputEventQueueRemoteClose,
+				PendingRemoteClose: true,
+			})
+		case SubchannelOutputEventSendData:
+			outputEvents = append(outputEvents, SubchannelOutputEventS{
+				Event: SubchannelOutputEventSendData,
+				// XXX call into manager send_data with appropriate sub-channel id.
+			})
+		case SubchannelOutputEventSignalDataReceived:
+			outputEvents = append(outputEvents, SubchannelOutputEventS{
+				Event: SubchannelOutputEventSignalDataReceived,
+				// XXX not sure what we should do here.
+			})
+		case SubchannelOutputEventSendClose:
+			outputEvents = append(outputEvents, SubchannelOutputEventS{
+				Event: SubchannelOutputEventSendClose,
+				// XXX call into manager send_close with subchannel-id
+			})
+		case SubchannelOutputEventSignalWriteConnLost:
+			outputEvents = append(outputEvents, SubchannelOutputEventS{
+				Event: SubchannelOutputEventSignalWriteConnLost,
+				// XXX again, not sure what we should do here
+			})
+		case SubchannelOutputEventSignalReadConnLost:
+			outputEvents = append(outputEvents, SubchannelOutputEventS{
+				Event: SubchannelOutputEventSignalReadConnLost,
+				// XXX ^^
+			})
+		case SubchannelOutputEventCloseSubchannel:
+			outputEvents = append(outputEvents, SubchannelOutputEventS{
+				Event: SubchannelOutputEventCloseSubchannel,
+				// XXX call manager's close subchannel with the scid
+			})
+		case SubchannelOutputEventSignalConnLost:
+			outputEvents = append(outputEvents, SubchannelOutputEventS{
+				Event: SubchannelOutputEventSignalConnLost,
+			})
+		case SubchannelOutputEventErrorClosedClose:
+			outputEvents = append(outputEvents, SubchannelOutputEventS{
+				Event: SubchannelOutputEventErrorClosedClose,
+				// XXX: return an error elsewhere for closing an already closed sub-channel
+			})
+		case SubchannelOutputEventErrorClosedWrite:
+			outputEvents = append(outputEvents, SubchannelOutputEventS{
+				Event: SubchannelOutputEventErrorClosedWrite,
+				// XXX: return an error elsewhere for writing into a closed sub-channel
+			})
+		default:
+		}
+	}
+
+	return outputEvents
+}
