@@ -102,7 +102,7 @@ func sendFile(transfer PendingTransfer, fileName string) {
 		return
 	}
 
-	code, status, err := transfer.NewClient().SendFile(ctx, fileName, reader, true, wormhole.WithProgress(transfer.UpdateProgress))
+	code, status, err := transfer.NewClient().SendFile(ctx, fileName, reader, false, wormhole.WithProgress(transfer.UpdateProgress))
 
 	if err != nil {
 		transfer.NotifyCodeGenerationFailure(C.CodeGenerationFailed, err.Error())
@@ -175,7 +175,7 @@ func recvFile(transfer PendingTransfer, code string) {
 	addPendingTransfer(transfer.Reference(), cancelFunc)
 	downloadId := transfer.Reference()
 
-	msg, err := transfer.NewClient().Receive(ctx, code, true, wormhole.WithProgress(transfer.UpdateProgress))
+	msg, err := transfer.NewClient().Receive(ctx, code, false, wormhole.WithProgress(transfer.UpdateProgress))
 
 	if err != nil {
 		transfer.NotifyError(C.ReceiveFileError, err.Error())
