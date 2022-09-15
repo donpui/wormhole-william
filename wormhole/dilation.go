@@ -1167,12 +1167,12 @@ func (d *dilationProtocol) subchannelStateMachine(event SubchannelInputEvent) []
 }
 
 type SubchannelInputEventS struct {
-	Event                  SubchannelInputEvent
+	Event SubchannelInputEvent
 }
 
 type SubchannelOutputEventS struct {
-	Event                  SubchannelOutputEvent
-	PendingRemoteClose     bool
+	Event              SubchannelOutputEvent
+	PendingRemoteClose bool
 }
 
 func (d *dilationProtocol) processSubchannelStateMachine(input SubchannelInputEventS) []SubchannelOutputEventS {
@@ -1188,7 +1188,7 @@ func (d *dilationProtocol) processSubchannelStateMachine(input SubchannelInputEv
 			})
 		case SubchannelOutputEventQueueRemoteClose:
 			outputEvents = append(outputEvents, SubchannelOutputEventS{
-				Event: SubchannelOutputEventQueueRemoteClose,
+				Event:              SubchannelOutputEventQueueRemoteClose,
 				PendingRemoteClose: true,
 			})
 		case SubchannelOutputEventSendData:
