@@ -92,6 +92,8 @@ func ClientSendText(transfer *C.wrapped_context_t, msgC *C.char) {
 
 func sendFile(transfer PendingTransfer, fileName string) {
 	ctx, cancel := context.WithCancel(context.Background())
+	var logFunc wormhole.LogFunc = transfer.Log
+	ctx = context.WithValue(ctx, "log-func", logFunc)
 	addPendingTransfer(transfer.Reference(), cancel)
 	transferRef := transfer.Reference()
 

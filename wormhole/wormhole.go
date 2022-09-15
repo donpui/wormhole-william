@@ -67,6 +67,8 @@ var (
 	DefaultTransitRelayURL = "tcp://transit.magic-wormhole.io:4001"
 )
 
+type LogFunc func(string, ...interface{})
+
 func (c *Client) wordCount() int {
 	if c.PassPhraseComponentLength > 1 {
 		return c.PassPhraseComponentLength
