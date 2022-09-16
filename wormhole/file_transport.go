@@ -14,6 +14,7 @@ import (
 	"net"
 	"net/url"
 	"strconv"
+	"time"
 
 	"github.com/psanford/wormhole-william/internal/crypto"
 	"golang.org/x/crypto/hkdf"
@@ -36,6 +37,9 @@ const (
 
 // Websocket read buffer size
 const websocketReadSize int64 = 65536
+
+// TCP direct connection timeout in sec.
+const tcpDirectTimeout = 10
 
 // UnsupportedProtocolErr is used in the default case of protocol switch
 // statements to account for unexpected protocols.
@@ -195,14 +199,19 @@ func (t *fileTransport) connectViaRelay(otherTransit *transitMsg) (net.Conn, err
 				switch endpoint.Type {
 				case "direct-tcp-v1":
 					addr = net.JoinHostPort(endpoint.Hostname, strconv.Itoa(endpoint.Port))
+					t.relayURL.Scheme = "tcp"
 				case "websocket-v1":
 					addr = endpoint.Url
+					//TODO select WS or WSS, otherwise always WSS
+					//set schema to match hint url
+					t.relayURL.Scheme = "wss"
 				}
+				fmt.Println("connectViaRelay: addr", addr)
 				ctx, cancel := context.WithCancel(context.Background())
 				cancelFuncs[addr] = cancel
 
 				count++
-				go t.connectToRelay(ctx, successChan, failChan)
+				go t.connectToRelay(ctx, addr, successChan, failChan)
 			}
 		}
 	}
@@ -230,7 +239,8 @@ func (t *fileTransport) connectDirect(otherTransit *transitMsg) (net.Conn, error
 	for _, hint := range otherTransit.HintsV1 {
 		if hint.Type == "direct-tcp-v1" {
 			count++
-			ctx, cancel := context.WithCancel(context.Background())
+			// set timeout, how long we wait for TCP direct connection to accept, not to hang forever
+			ctx, cancel := context.WithTimeout(context.Background(), tcpDirectTimeout*time.Second)
 			addr := net.JoinHostPort(hint.Hostname, strconv.Itoa(hint.Port))
 
 			cancelFuncs[addr] = cancel
@@ -251,30 +261,33 @@ func (t *fileTransport) connectDirect(otherTransit *transitMsg) (net.Conn, error
 	return conn, nil
 }
 
-func (t *fileTransport) connectToRelay(ctx context.Context, successChan chan net.Conn, failChan chan string) {
+func (t *fileTransport) connectToRelay(ctx context.Context, addr string, successChan chan net.Conn, failChan chan string) {
 	var d net.Dialer
 	var conn net.Conn
 	var err error
-	addr := t.relayURL.Host // This contains the port if necessary
+
+	//in case address is not provide in hints
+	if addr == "" {
+		addr = t.relayURL.Host
+	}
 
 	switch t.relayURL.Scheme {
 	case "tcp":
 		conn, err = d.DialContext(ctx, "tcp", addr)
-
 		if err != nil {
 			failChan <- addr
 			return
 		}
+		fmt.Println("Downloading... via TCP relay")
 	case "ws", "wss":
 		var wsconn *websocket.Conn
-		wsconn, _, err = websocket.Dial(ctx, t.relayURL.String(), nil)
-
+		wsconn, _, err = websocket.Dial(ctx, addr, nil)
 		if err != nil {
 			failChan <- addr
 			return
 		}
 		wsconn.SetReadLimit(websocketReadSize)
-
+		fmt.Println("Downloading... via WebSocket relay")
 		conn = websocket.NetConn(ctx, wsconn, websocket.MessageBinary)
 	}
 
@@ -302,6 +315,7 @@ func (t *fileTransport) connectToRelay(ctx context.Context, successChan chan net
 
 func (t *fileTransport) connectToSingleHost(ctx context.Context, addr string, successChan chan net.Conn, failChan chan string) {
 	var d net.Dialer
+	fmt.Println("Downloading... directly")
 	conn, err := d.DialContext(ctx, "tcp", addr)
 
 	if err != nil {
@@ -483,19 +497,28 @@ func (t *fileTransport) listen() error {
 	if t.disableListener {
 		return nil
 	}
-	switch t.relayURL.Scheme {
-	case "tcp":
-		l, err := net.Listen("tcp", ":0")
-		if err != nil {
-			return err
-		}
-
-		t.listener = l
-	case "ws", "wss":
-		t.listener = nil
-	default:
-		return fmt.Errorf("%w: '%s'", UnsupportedProtocolErr, t.relayURL.Scheme)
+	// always have tcp listener, otherwise app should run with --no-listen
+	l, err := net.Listen("tcp", ":0")
+	if err != nil {
+		return err
 	}
+	t.listener = l
+
+	// // This is in case we want completle disable direct tcp
+	// // listening while transit-relay websocket is presented in configuration.
+	// switch t.relayURL.Scheme {
+	// case "tcp":
+	// 	l, err := net.Listen("tcp", ":0")
+	// 	if err != nil {
+	// 		return err
+	// 	}
+
+	// 	t.listener = l
+	// case "ws", "wss":
+	// 	t.listener = nil
+	// default:
+	// 	return fmt.Errorf("%w: '%s'", UnsupportedProtocolErr, t.relayURL.Scheme)
+	// }
 
 	return nil
 }
