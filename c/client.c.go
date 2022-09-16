@@ -39,6 +39,9 @@ type clientWithContext struct {
 	client     *wormhole.Client
 }
 
+// true - disables direct tcp connection
+const NO_LISTEN = false
+
 var pendingTransfers map[unsafe.Pointer]transferContext = map[unsafe.Pointer]transferContext{}
 
 func addPendingTransfer(transferRef unsafe.Pointer, cancelFunc context.CancelFunc) {
@@ -104,7 +107,7 @@ func sendFile(transfer PendingTransfer, fileName string) {
 		return
 	}
 
-	code, status, err := transfer.NewClient().SendFile(ctx, fileName, reader, false, wormhole.WithProgress(transfer.UpdateProgress))
+	code, status, err := transfer.NewClient().SendFile(ctx, fileName, reader, NO_LISTEN, wormhole.WithProgress(transfer.UpdateProgress))
 
 	if err != nil {
 		transfer.NotifyCodeGenerationFailure(C.CodeGenerationFailed, err.Error())
@@ -177,7 +180,7 @@ func recvFile(transfer PendingTransfer, code string) {
 	addPendingTransfer(transfer.Reference(), cancelFunc)
 	downloadId := transfer.Reference()
 
-	msg, err := transfer.NewClient().Receive(ctx, code, false, wormhole.WithProgress(transfer.UpdateProgress))
+	msg, err := transfer.NewClient().Receive(ctx, code, NO_LISTEN, wormhole.WithProgress(transfer.UpdateProgress))
 
 	if err != nil {
 		transfer.NotifyError(C.ReceiveFileError, err.Error())

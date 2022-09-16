@@ -191,27 +191,24 @@ func (t *fileTransport) connectViaRelay(otherTransit *transitMsg) (net.Conn, err
 	failChan := make(chan string)
 
 	var count int
-
+	fmt.Println(otherTransit.HintsV1)
 	for _, relay := range otherTransit.HintsV1 {
 		if relay.Type == "relay-v1" {
 			for _, endpoint := range relay.Hints {
 				var addr string
 				switch endpoint.Type {
 				case "direct-tcp-v1":
-					addr = net.JoinHostPort(endpoint.Hostname, strconv.Itoa(endpoint.Port))
 					t.relayURL.Scheme = "tcp"
+					t.relayURL.Host = net.JoinHostPort(endpoint.Hostname, strconv.Itoa(endpoint.Port))
 				case "websocket-v1":
-					addr = endpoint.Url
-					//TODO select WS or WSS, otherwise always WSS
-					//set schema to match hint url
-					t.relayURL.Scheme = "wss"
+					t.relayURL, _ = url.Parse(endpoint.Url)
+
 				}
-				fmt.Println("connectViaRelay: addr", addr)
 				ctx, cancel := context.WithCancel(context.Background())
 				cancelFuncs[addr] = cancel
 
 				count++
-				go t.connectToRelay(ctx, addr, successChan, failChan)
+				go t.connectToRelay(ctx, t.relayURL, successChan, failChan)
 			}
 		}
 	}
@@ -261,52 +258,53 @@ func (t *fileTransport) connectDirect(otherTransit *transitMsg) (net.Conn, error
 	return conn, nil
 }
 
-func (t *fileTransport) connectToRelay(ctx context.Context, addr string, successChan chan net.Conn, failChan chan string) {
+func (t *fileTransport) connectToRelay(ctx context.Context, relayUrl *url.URL, successChan chan net.Conn, failChan chan string) {
 	var d net.Dialer
 	var conn net.Conn
 	var err error
 
 	//in case address is not provide in hints
-	if addr == "" {
-		addr = t.relayURL.Host
+	if relayUrl == nil {
+		relayUrl.Scheme = t.relayURL.Scheme
+		relayUrl.Host = t.relayURL.Host
 	}
 
-	switch t.relayURL.Scheme {
+	switch relayUrl.Scheme {
 	case "tcp":
-		conn, err = d.DialContext(ctx, "tcp", addr)
+		conn, err = d.DialContext(ctx, relayUrl.Scheme, relayUrl.Host)
 		if err != nil {
-			failChan <- addr
+			failChan <- relayUrl.String()
 			return
 		}
-		fmt.Println("Downloading... via TCP relay")
+		fmt.Println("Downloading... via TCP relay " + relayUrl.String())
 	case "ws", "wss":
 		var wsconn *websocket.Conn
-		wsconn, _, err = websocket.Dial(ctx, addr, nil)
+		wsconn, _, err = websocket.Dial(ctx, relayUrl.String(), nil)
 		if err != nil {
-			failChan <- addr
+			failChan <- relayUrl.String()
 			return
 		}
 		wsconn.SetReadLimit(websocketReadSize)
-		fmt.Println("Downloading... via WebSocket relay")
+		fmt.Println("Downloading... via WebSocket relay " + relayUrl.String())
 		conn = websocket.NetConn(ctx, wsconn, websocket.MessageBinary)
 	}
 
 	_, err = conn.Write(t.relayHandshakeHeader())
 	if err != nil {
-		failChan <- addr
+		failChan <- relayUrl.String()
 		return
 	}
 	gotOk := make([]byte, 3)
 	_, err = io.ReadFull(conn, gotOk)
 	if err != nil {
 		conn.Close()
-		failChan <- addr
+		failChan <- relayUrl.String()
 		return
 	}
 
 	if !bytes.Equal(gotOk, []byte("ok\n")) {
 		conn.Close()
-		failChan <- addr
+		failChan <- relayUrl.String()
 		return
 	}
 
@@ -503,22 +501,6 @@ func (t *fileTransport) listen() error {
 		return err
 	}
 	t.listener = l
-
-	// // This is in case we want completle disable direct tcp
-	// // listening while transit-relay websocket is presented in configuration.
-	// switch t.relayURL.Scheme {
-	// case "tcp":
-	// 	l, err := net.Listen("tcp", ":0")
-	// 	if err != nil {
-	// 		return err
-	// 	}
-
-	// 	t.listener = l
-	// case "ws", "wss":
-	// 	t.listener = nil
-	// default:
-	// 	return fmt.Errorf("%w: '%s'", UnsupportedProtocolErr, t.relayURL.Scheme)
-	// }
 
 	return nil
 }

@@ -23,6 +23,9 @@ const DEFAULT_RENDEZVOUS_URL = "ws://localhost:4000/v1"
 const DEFAULT_TRANSIT_RELAY_URL = "ws://localhost:4002"
 const DEFAULT_PASSPHRASE_COMPONENT_LENGTH = 2
 
+// true - disables direct tcp connection
+const NO_LISTEN = true
+
 var (
 	ErrClientNotFound = fmt.Errorf("%s", "wormhole client not found")
 
@@ -239,7 +242,7 @@ func Client_SendFile(_ js.Value, args []js.Value) interface{} {
 			opts = collectTransferOptions(args[3])
 		}
 
-		code, resultChan, err := client.SendFile(ctx, fileName, fileWrapper, true, opts...)
+		code, resultChan, err := client.SendFile(ctx, fileName, fileWrapper, NO_LISTEN, opts...)
 		if err != nil {
 			reject(err)
 			return
@@ -288,7 +291,7 @@ func Client_RecvText(_ js.Value, args []js.Value) interface{} {
 			return
 		}
 
-		msg, err := client.Receive(ctx, code, true)
+		msg, err := client.Receive(ctx, code, NO_LISTEN)
 		if err != nil {
 			reject(err)
 			return
