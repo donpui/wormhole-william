@@ -191,24 +191,27 @@ func (t *fileTransport) connectViaRelay(otherTransit *transitMsg) (net.Conn, err
 	failChan := make(chan string)
 
 	var count int
+
 	fmt.Println(otherTransit.HintsV1)
 	for _, relay := range otherTransit.HintsV1 {
 		if relay.Type == "relay-v1" {
 			for _, endpoint := range relay.Hints {
-				var addr string
+				var relayUrl *url.URL
 				switch endpoint.Type {
 				case "direct-tcp-v1":
-					t.relayURL.Scheme = "tcp"
-					t.relayURL.Host = net.JoinHostPort(endpoint.Hostname, strconv.Itoa(endpoint.Port))
+					relayUrl = &url.URL{
+						Scheme: "tcp",
+						Host:   net.JoinHostPort(endpoint.Hostname, strconv.Itoa(endpoint.Port)),
+					}
 				case "websocket-v1":
-					t.relayURL, _ = url.Parse(endpoint.Url)
+					relayUrl, _ = url.Parse(endpoint.Url)
 
 				}
 				ctx, cancel := context.WithCancel(context.Background())
-				cancelFuncs[addr] = cancel
+				cancelFuncs[relayUrl.String()] = cancel
 
 				count++
-				go t.connectToRelay(ctx, t.relayURL, successChan, failChan)
+				go t.connectToRelay(ctx, relayUrl, successChan, failChan)
 			}
 		}
 	}
@@ -263,7 +266,7 @@ func (t *fileTransport) connectToRelay(ctx context.Context, relayUrl *url.URL, s
 	var conn net.Conn
 	var err error
 
-	//in case address is not provide in hints
+	//in case address is not provide in hints, try default
 	if relayUrl == nil {
 		relayUrl.Scheme = t.relayURL.Scheme
 		relayUrl.Host = t.relayURL.Host
@@ -307,7 +310,6 @@ func (t *fileTransport) connectToRelay(ctx context.Context, relayUrl *url.URL, s
 		failChan <- relayUrl.String()
 		return
 	}
-
 	t.directRecvHandshake(ctx, conn, successChan, failChan)
 }
 
