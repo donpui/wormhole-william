@@ -34,6 +34,7 @@ const (
 	// use cases: (1) cannot connect to mailbox/relay
 	ERR_CONNECTION_REFUSED  = "connect: connection refused"
 	ERR_NETWORK_UNREACHABLE = "connect: network is unreachable"
+	ERR_FAILED_HANDSHAKE    = "failed to send handshake request"
 	// use cases: (1) receiver enters an incorrect nameplate
 	ERR_INVALID_NAMEPLATE = "Nameplate is unclaimed"
 )
@@ -96,7 +97,8 @@ func extractErrorCode(fallback C.result_type_t, errorMessage string) C.result_ty
 	} else if strings.Contains(errorMessage, ERR_WRONG_CODE) {
 		return C.WrongCode
 	} else if strings.Contains(errorMessage, ERR_CONNECTION_REFUSED) ||
-		strings.Contains(errorMessage, ERR_NETWORK_UNREACHABLE) {
+		strings.Contains(errorMessage, ERR_NETWORK_UNREACHABLE) ||
+		strings.Contains(errorMessage, ERR_FAILED_HANDSHAKE) {
 		return C.ConnectionRefused
 	}
 
