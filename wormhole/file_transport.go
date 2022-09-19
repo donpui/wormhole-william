@@ -191,7 +191,6 @@ func (t *fileTransport) connectViaRelay(otherTransit *transitMsg) (net.Conn, err
 
 	var count int
 
-	fmt.Println(otherTransit.HintsV1)
 	for _, relay := range otherTransit.HintsV1 {
 		if relay.Type == "relay-v1" {
 			for _, endpoint := range relay.Hints {
@@ -208,14 +207,15 @@ func (t *fileTransport) connectViaRelay(otherTransit *transitMsg) (net.Conn, err
 					relayUrl, err = url.Parse(endpoint.Url)
 
 				}
-				ctx, _ := context.WithCancel(context.Background())
+				ctx, cancel := context.WithCancel(context.Background())
 
-				count++
 				//in case invalid url, cancel download
 				if err == nil {
+					count++
 					go t.connectToRelay(ctx, relayUrl, successChan, failChan)
 				} else {
-					return nil, err
+					cancel()
+					continue
 				}
 			}
 		}
