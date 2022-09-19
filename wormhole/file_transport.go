@@ -185,7 +185,6 @@ type fileTransport struct {
 }
 
 func (t *fileTransport) connectViaRelay(otherTransit *transitMsg) (net.Conn, error) {
-	cancelFuncs := make(map[string]func())
 
 	successChan := make(chan net.Conn)
 	failChan := make(chan string)
@@ -197,6 +196,8 @@ func (t *fileTransport) connectViaRelay(otherTransit *transitMsg) (net.Conn, err
 		if relay.Type == "relay-v1" {
 			for _, endpoint := range relay.Hints {
 				var relayUrl *url.URL
+				var err error
+
 				switch endpoint.Type {
 				case "direct-tcp-v1":
 					relayUrl = &url.URL{
@@ -204,14 +205,18 @@ func (t *fileTransport) connectViaRelay(otherTransit *transitMsg) (net.Conn, err
 						Host:   net.JoinHostPort(endpoint.Hostname, strconv.Itoa(endpoint.Port)),
 					}
 				case "websocket-v1":
-					relayUrl, _ = url.Parse(endpoint.Url)
+					relayUrl, err = url.Parse(endpoint.Url)
 
 				}
-				ctx, cancel := context.WithCancel(context.Background())
-				cancelFuncs[relayUrl.String()] = cancel
+				ctx, _ := context.WithCancel(context.Background())
 
 				count++
-				go t.connectToRelay(ctx, relayUrl, successChan, failChan)
+				//in case invalid url, cancel download
+				if err == nil {
+					go t.connectToRelay(ctx, relayUrl, successChan, failChan)
+				} else {
+					return nil, err
+				}
 			}
 		}
 	}
