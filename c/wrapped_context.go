@@ -245,6 +245,7 @@ func (wctx *C.wrapped_context_t) Malloc(size int) (unsafe.Pointer, error) {
 }
 
 func (wctx *C.wrapped_context_t) HandleMOTD(motd string) {
+	wctx.Log("Mesage of the day:\n%s\n", motd)
 	wctx.motd = C.CString(motd)
 	C.call_notify_motd(wctx)
 }

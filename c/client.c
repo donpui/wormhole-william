@@ -27,7 +27,9 @@ char *call_write(wrapped_context_t *context, uint8_t *buffer, int length) {
 }
 
 void call_notify_motd(wrapped_context_t* context) {
-  return context->impl.notify_motd(context->clientCtx, context->motd);
+  if (context->impl.notify_motd != NULL) {
+    return context->impl.notify_motd(context->clientCtx, context->motd);
+  }
 }
 
 read_result_t call_read(wrapped_context_t *context, uint8_t *buffer,
