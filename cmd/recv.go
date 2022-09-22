@@ -16,6 +16,7 @@ import (
 
 	"github.com/cheggaaa/pb/v3"
 	"github.com/klauspost/compress/zip"
+	"github.com/psanford/wormhole-william/rendezvous"
 	"github.com/psanford/wormhole-william/wormhole"
 	"github.com/spf13/cobra"
 )
@@ -30,6 +31,7 @@ func recvCommand() *cobra.Command {
 
 	cmd.Flags().BoolVarP(&verify, "verify", "v", false, "display verification string (and wait for approval)")
 	cmd.Flags().BoolVar(&hideProgressBar, "hide-progress", false, "suppress progress-bar display")
+	cmd.Flags().BoolVar(&hideMOTD, "hide-motd", false, "suppress message of the day")
 
 	cmd.ValidArgsFunction = recvCodeCompletion
 
@@ -65,7 +67,15 @@ func recvAction(cmd *cobra.Command, args []string) {
 		}
 	}
 
-	msg, err := c.Receive(ctx, code, disableListener)
+	opts := []wormhole.TransferOption{}
+
+	if !hideMOTD {
+		opts = append(opts, wormhole.WithConnectInfoHandler(func(info *rendezvous.ConnectInfo) {
+			fmt.Println(info)
+		}))
+	}
+
+	msg, err := c.Receive(ctx, code, disableListener, opts...)
 	if err != nil {
 		log.Fatal(err)
 	}

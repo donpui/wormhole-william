@@ -80,6 +80,7 @@ typedef struct {
 
 typedef void (*notifyf)(void *context, result_t *result);
 typedef void (*notifycodegenf)(void *context, codegen_result_t *result);
+typedef void (*notifymotd)(void* context, char* motd);
 typedef void (*update_progressf)(void *context, progress_t *progress);
 
 typedef void (*update_metadataf)(void *context, file_metadata_t *metadata);
@@ -95,6 +96,7 @@ typedef struct {
   readf read;
   seekf seek;
   update_progressf update_progress;
+  notifymotd notify_motd;
   notifyf notify;
   notifycodegenf notify_codegen;
   update_metadataf update_metadata;
@@ -111,6 +113,7 @@ typedef struct _wrapped_context_t {
   client_config_t config;
 
   progress_t progress;
+  char* motd;
   result_t result;
   codegen_result_t codegen_result;
   file_metadata_t metadata;
@@ -120,6 +123,7 @@ void call_notify(wrapped_context_t *context);
 void call_notify_codegen(wrapped_context_t *context);
 void call_update_progress(wrapped_context_t *context);
 void call_update_metadata(wrapped_context_t *context);
+void call_notify_motd(wrapped_context_t* context);
 
 read_result_t call_read(wrapped_context_t *context, uint8_t *buffer,
                         int32_t length);

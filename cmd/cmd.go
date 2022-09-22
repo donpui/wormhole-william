@@ -28,6 +28,7 @@ var (
 	transitHelper   string
 	verify          bool
 	hideProgressBar bool
+	hideMOTD        bool
 	disableListener bool
 )
 

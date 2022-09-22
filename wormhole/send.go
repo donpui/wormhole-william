@@ -214,7 +214,10 @@ func (c *Client) sendFileDirectory(ctx context.Context, offer *offerMsg, r io.Re
 	appID := c.AppID
 	rc := rendezvous.NewClient(c.RendezvousURL, sideID, appID)
 
-	_, err := rc.Connect(ctx)
+	info, err := rc.Connect(ctx)
+	if options.connectInfoFunc != nil {
+		options.connectInfoFunc(info)
+	}
 	if err != nil {
 		return "", nil, err
 	}

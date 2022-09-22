@@ -26,6 +26,10 @@ char *call_write(wrapped_context_t *context, uint8_t *buffer, int length) {
   return context->impl.write(context->clientCtx, buffer, length);
 }
 
+void call_notify_motd(wrapped_context_t* context) {
+  return context->impl.notify_motd(context->clientCtx, context->motd);
+}
+
 read_result_t call_read(wrapped_context_t *context, uint8_t *buffer,
                         int length) {
   return context->impl.read(context->clientCtx, buffer, length);
@@ -100,6 +104,10 @@ void free_wrapped_context(wrapped_context_t *wctx) {
 
     if (wctx->config.transit_relay_url != NULL) {
       free(wctx->config.transit_relay_url);
+    }
+
+    if (wctx->motd != NULL) {
+      free(wctx->motd);
     }
 
     free(wctx);

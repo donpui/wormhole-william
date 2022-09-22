@@ -36,7 +36,7 @@ func (c *Client) Receive(ctx context.Context, code string, disableListener bool,
 		rc.Close(ctx, mood)
 	}()
 
-	_, err := rc.Connect(ctx)
+	info, err := rc.Connect(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -126,6 +126,10 @@ func (c *Client) Receive(ctx context.Context, code string, disableListener bool,
 		if err != nil {
 			return nil, err
 		}
+	}
+
+	if fr.options.connectInfoFunc != nil {
+		fr.options.connectInfoFunc(info)
 	}
 
 	if offer.Message != nil {

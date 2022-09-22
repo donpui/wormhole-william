@@ -16,6 +16,7 @@ import (
 
 	"github.com/cheggaaa/pb/v3"
 	qrterminal "github.com/mdp/qrterminal/v3"
+	"github.com/psanford/wormhole-william/rendezvous"
 	"github.com/psanford/wormhole-william/wormhole"
 	"github.com/spf13/cobra"
 )
@@ -59,6 +60,7 @@ func sendCommand() *cobra.Command {
 	cmd.Flags().StringVar(&codeFlag, "code", "", "human-generated code phrase")
 	cmd.Flags().StringVar(&sendTextFlag, "text", "", "text message to send, instead of a file.\nUse '-' to read from stdin")
 	cmd.Flags().BoolVar(&hideProgressBar, "hide-progress", false, "suppress progress-bar display")
+	cmd.Flags().BoolVar(&hideMOTD, "hide-motd", false, "suppress message of the day")
 	cmd.Flags().BoolVar(&showQRCode, "qr", false, "display code as QR code (experimental)")
 
 	return &cmd
@@ -141,6 +143,12 @@ func sendFile(filename string) {
 			if sentBytes == totalBytes {
 				bar.Finish()
 			}
+		}))
+	}
+
+	if !hideMOTD {
+		args = append(args, wormhole.WithConnectInfoHandler(func(info *rendezvous.ConnectInfo) {
+			fmt.Println(info.MOTD)
 		}))
 	}
 

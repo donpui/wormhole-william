@@ -1,8 +1,11 @@
 package wormhole
 
+import "github.com/psanford/wormhole-william/rendezvous"
+
 type transferOptions struct {
-	code         string
-	progressFunc progressFunc
+	code            string
+	progressFunc    progressFunc
+	connectInfoFunc connectInfoFunc
 }
 
 type TransferOption interface {
@@ -49,4 +52,19 @@ func (o progressTransferOption) setOption(opts *transferOptions) error {
 // SendFile or SendDirectory.
 func WithProgress(f func(sentBytes int64, totalBytes int64)) TransferOption {
 	return progressTransferOption{f}
+}
+
+type connectInfoFunc func(*rendezvous.ConnectInfo)
+
+type connectInfoHandlerOption struct {
+	connectInfoFunc connectInfoFunc
+}
+
+func (o connectInfoHandlerOption) setOption(opts *transferOptions) error {
+	opts.connectInfoFunc = o.connectInfoFunc
+	return nil
+}
+
+func WithConnectInfoHandler(f connectInfoFunc) TransferOption {
+	return connectInfoHandlerOption{f}
 }

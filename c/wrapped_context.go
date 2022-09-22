@@ -49,6 +49,7 @@ const (
 type PendingTransfer interface {
 	Log(message string, args ...interface{})
 	UpdateProgress(done int64, total int64)
+	HandleMOTD(motd string)
 	NotifyError(result C.result_type_t, errorMessage string)
 	UpdateMetadata(fileName string, length int64)
 	Write(bytes unsafe.Pointer, length int) error
@@ -241,4 +242,9 @@ func (wctx *C.wrapped_context_t) Malloc(size int) (unsafe.Pointer, error) {
 	}
 
 	return block, nil
+}
+
+func (wctx *C.wrapped_context_t) HandleMOTD(motd string) {
+	wctx.motd = C.CString(motd)
+	C.call_notify_motd(wctx)
 }
