@@ -374,8 +374,8 @@ func (c *Client) sendFileDirectory(ctx context.Context, offer *offerMsg, r io.Re
 			sendErr(fmt.Errorf("unexpected answer"))
 			return
 		}
-
-		conn, err := transport.acceptConnection(ctx)
+		conn, err, viaRelay := transport.acceptConnection(ctx)
+		fmt.Println("Sending...")
 		// TODO temporary logging just for debugging
 		if loggingEnabled {
 			logFunc("Connection accepted. Local address: %v, Remote address: %v",
@@ -384,6 +384,11 @@ func (c *Client) sendFileDirectory(ctx context.Context, offer *offerMsg, r io.Re
 		if err != nil {
 			sendErr(err)
 			return
+		}
+		if viaRelay {
+			fmt.Printf("Sending ... via relay: %s\n", relayUrl.String())
+		} else {
+			fmt.Printf("Sending ... directly to Pair: %v\n", conn.RemoteAddr().String())
 		}
 
 		cryptor := newTransportCryptor(conn, transitKey, "transit_record_receiver_key", "transit_record_sender_key")

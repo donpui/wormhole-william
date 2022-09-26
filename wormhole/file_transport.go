@@ -577,7 +577,9 @@ func (t *fileTransport) waitForRelayPeer(conn net.Conn, cancelCh chan struct{}) 
 	return nil
 }
 
-func (t *fileTransport) acceptConnection(ctx context.Context) (net.Conn, error) {
+func (t *fileTransport) acceptConnection(ctx context.Context) (net.Conn, error, bool) {
+	// separate channels for direct connect vs via relay
+	readyRelayCh := make(chan net.Conn)
 	readyCh := make(chan net.Conn)
 	cancelCh := make(chan struct{})
 	acceptErrCh := make(chan error, 1)
@@ -588,7 +590,7 @@ func (t *fileTransport) acceptConnection(ctx context.Context) (net.Conn, error) 
 			if waitErr != nil {
 				return
 			}
-			t.handleIncomingConnection(t.relayConn, readyCh, cancelCh)
+			t.handleIncomingConnection(t.relayConn, readyRelayCh, cancelCh)
 		}()
 	}
 
@@ -613,18 +615,26 @@ func (t *fileTransport) acceptConnection(ctx context.Context) (net.Conn, error) 
 	select {
 	case <-ctx.Done():
 		close(cancelCh)
-		return nil, ctx.Err()
+		return nil, ctx.Err(), false
 	case acceptErr := <-acceptErrCh:
 		close(cancelCh)
-		return nil, acceptErr
+		return nil, acceptErr, false
+	case conn := <-readyRelayCh:
+		close(cancelCh)
+		_, err := conn.Write([]byte("go\n"))
+		if err != nil {
+			return nil, err, false
+		}
+
+		return conn, nil, true
 	case conn := <-readyCh:
 		close(cancelCh)
 		_, err := conn.Write([]byte("go\n"))
 		if err != nil {
-			return nil, err
+			return nil, err, false
 		}
 
-		return conn, nil
+		return conn, nil, false
 	}
 }
 
