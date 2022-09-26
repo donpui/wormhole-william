@@ -35,8 +35,11 @@ const (
 	ERR_CONNECTION_REFUSED  = "connect: connection refused"
 	ERR_NETWORK_UNREACHABLE = "connect: network is unreachable"
 	ERR_FAILED_HANDSHAKE    = "failed to send handshake request"
+	ERR_NO_ADDRESS          = "No address associated with hostname"
 	// use cases: (1) receiver enters an incorrect nameplate
 	ERR_INVALID_NAMEPLATE = "Nameplate is unclaimed"
+	// use cases: (1) sender/receiver terminates network (air plane mode)
+	ERR_CONNECTION_ABORT = "connection abort"
 )
 
 const (
@@ -68,7 +71,8 @@ type PendingTransfer interface {
 // the error message, refactor this
 func extractErrorCode(fallback C.result_type_t, errorMessage string) C.result_type_t {
 	if fallback == C.SendFileError {
-		if strings.Contains(errorMessage, ERR_CONTEXT_CANCELLED) {
+		if strings.Contains(errorMessage, ERR_CONTEXT_CANCELLED) ||
+			strings.Contains(errorMessage, ERR_CONNECTION_ABORT) {
 			return C.TransferCancelled
 		} else if strings.Contains(errorMessage, ERR_BROKEN_PIPE) ||
 			strings.Contains(errorMessage, ERR_EOF) ||
@@ -82,7 +86,8 @@ func extractErrorCode(fallback C.result_type_t, errorMessage string) C.result_ty
 		}
 	} else if fallback == C.ReceiveFileError {
 		if strings.Contains(errorMessage, ERR_CONTEXT_CANCELLED) ||
-			strings.Contains(errorMessage, ERR_FAILED_TO_GET_READER) {
+			strings.Contains(errorMessage, ERR_FAILED_TO_GET_READER) ||
+			strings.Contains(errorMessage, ERR_CONNECTION_ABORT) {
 			return C.TransferCancelled
 		} else if strings.Contains(errorMessage, ERR_UNEXPECTED_EOF) {
 			return C.TransferCancelledBySender
@@ -98,7 +103,8 @@ func extractErrorCode(fallback C.result_type_t, errorMessage string) C.result_ty
 		return C.WrongCode
 	} else if strings.Contains(errorMessage, ERR_CONNECTION_REFUSED) ||
 		strings.Contains(errorMessage, ERR_NETWORK_UNREACHABLE) ||
-		strings.Contains(errorMessage, ERR_FAILED_HANDSHAKE) {
+		strings.Contains(errorMessage, ERR_FAILED_HANDSHAKE) ||
+		strings.Contains(errorMessage, ERR_NO_ADDRESS) {
 		return C.ConnectionRefused
 	}
 
@@ -106,9 +112,10 @@ func extractErrorCode(fallback C.result_type_t, errorMessage string) C.result_ty
 }
 
 func extractErrorCodeCodeGen(errorCode C.codegen_result_type_t, errorMessage string) C.codegen_result_type_t {
-
 	if strings.Contains(errorMessage, ERR_CONNECTION_REFUSED) ||
-		strings.Contains(errorMessage, ERR_NETWORK_UNREACHABLE) {
+		strings.Contains(errorMessage, ERR_NETWORK_UNREACHABLE) ||
+		strings.Contains(errorMessage, ERR_FAILED_HANDSHAKE) ||
+		strings.Contains(errorMessage, ERR_NO_ADDRESS) {
 		return C.ConnectionRefused
 	}
 
