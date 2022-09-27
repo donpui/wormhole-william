@@ -247,23 +247,21 @@ func (c *Client) Receive(ctx context.Context, code string, disableListener bool,
 			return err
 		}
 
-		conn, err := transport.connectDirect(&gotTransitMsg)
+		cryptor, err := transport.connectDirect(&gotTransitMsg, transitKey)
 		if err != nil {
 			return err
 		}
 
-		if conn == nil {
-			conn, err = transport.connectViaRelay(&gotTransitMsg)
+		if cryptor == nil {
+			cryptor, err = transport.connectViaRelay(&gotTransitMsg, transitKey)
 			if err != nil {
 				return err
 			}
 		}
 
-		if conn == nil {
+		if cryptor == nil {
 			return errors.New("failed to establish connection")
 		}
-
-		cryptor := newTransportCryptor(conn, transitKey, "transit_record_sender_key", "transit_record_receiver_key")
 
 		fr.cryptor = cryptor
 		fr.sha256 = sha256.New()
@@ -320,7 +318,7 @@ type IncomingMessage struct {
 	initializeTransfer  func() error
 	rejectTransfer      func() error
 
-	cryptor   *transportCryptor
+	cryptor   transportCryptor
 	buf       []byte
 	readCount int64
 	options   transferOptions

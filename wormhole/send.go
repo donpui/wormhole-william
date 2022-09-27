@@ -200,7 +200,7 @@ func (c *Client) SendTextMsg(ctx context.Context, rc *rendezvous.Client, sideID 
 }
 
 func (c *Client) sendFileDirectory(ctx context.Context, offer *offerMsg, r io.Reader, disableListener bool, opts ...TransferOption) (string, chan SendResult, error) {
-	var logFunc, loggingEnabled = ctx.Value("log-func").(LogFunc)
+	//var logFunc, loggingEnabled = ctx.Value("log-func").(LogFunc)
 
 	var options transferOptions
 	for _, opt := range opts {
@@ -375,18 +375,11 @@ func (c *Client) sendFileDirectory(ctx context.Context, offer *offerMsg, r io.Re
 			return
 		}
 
-		conn, err := transport.acceptConnection(ctx)
-		// TODO temporary logging just for debugging
-		if loggingEnabled {
-			logFunc("Connection accepted. Local address: %v, Remote address: %v",
-				conn.LocalAddr().String(), conn.RemoteAddr().String())
-		}
+		cryptor, err := transport.acceptConnection(ctx, transitKey)
 		if err != nil {
 			sendErr(err)
 			return
 		}
-
-		cryptor := newTransportCryptor(conn, transitKey, "transit_record_receiver_key", "transit_record_sender_key")
 
 		recordSize := (1 << 14)
 		// chunk
@@ -405,7 +398,7 @@ func (c *Client) sendFileDirectory(ctx context.Context, offer *offerMsg, r io.Re
 
 		go func() {
 			<-ctx.Done()
-			conn.Close()
+			cryptor.Close()
 		}()
 
 		type recordOrError struct {
