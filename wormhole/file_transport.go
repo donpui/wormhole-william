@@ -273,8 +273,7 @@ func (t *fileTransport) connectToRelay(ctx context.Context, relayUrl *url.URL, s
 
 	//in case address is not provide in hints, try default
 	if relayUrl == nil {
-		relayUrl.Scheme = t.relayURL.Scheme
-		relayUrl.Host = t.relayURL.Host
+		relayUrl = t.relayURL
 	}
 
 	switch relayUrl.Scheme {
