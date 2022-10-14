@@ -86,7 +86,7 @@ func (self *tcpConnection) Close() error {
 }
 
 type wsConnection struct {
-	conn websocket.Conn
+	conn *websocket.Conn
 	ctx  context.Context
 }
 

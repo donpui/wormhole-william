@@ -191,7 +191,7 @@ func (t *fileTransport) connectToRelay(ctx context.Context, relayUrl *url.URL, s
 		wsconn.SetReadLimit(websocketReadSize)
 		fmt.Println("Downloading... via WebSocket relay " + relayUrl.String())
 		// conn = websocket.NetConn(ctx, wsconn, websocket.MessageBinary)
-		conn = &wsConnection{conn: *wsconn, ctx: ctx}
+		conn = &wsConnection{conn: wsconn, ctx: ctx}
 	}
 
 	err = conn.writeHandshakeMsg(t.relayHandshakeHeader())
@@ -357,7 +357,7 @@ func (t *fileTransport) listenRelay() (err error) {
 		}
 		c.SetReadLimit(websocketReadSize)
 		//conn = websocket.NetConn(ctx, c, websocket.MessageBinary)
-		conn = &wsConnection{conn: *c, ctx: ctx}
+		conn = &wsConnection{conn: c, ctx: ctx}
 	default:
 		return fmt.Errorf("%w: '%s'", UnsupportedProtocolErr, t.relayURL.Scheme)
 	}
