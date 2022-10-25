@@ -86,13 +86,15 @@ func (self *tcpConnection) Close() error {
 }
 
 type wsConnection struct {
-	conn *websocket.Conn
-	ctx  context.Context
+	conn    *websocket.Conn
+	ctx     context.Context
+	readBuf []byte
 }
 
 func (self *wsConnection) writeMsg(msg []byte) error {
-	/* Framing already included by the WebSocket protocol */
-	return self.conn.Write(self.ctx, websocket.MessageBinary, msg)
+	l := make([]byte, 4)
+	binary.BigEndian.PutUint32(l, uint32(len(msg)))
+	return self.conn.Write(self.ctx, websocket.MessageBinary, append(l, msg...))
 }
 
 func (self *wsConnection) writeHandshakeMsg(msg []byte) error {
@@ -100,19 +102,18 @@ func (self *wsConnection) writeHandshakeMsg(msg []byte) error {
 }
 
 func (self *wsConnection) readMsg() ([]byte, error) {
-	/* Framing already included by the WebSocket protocol */
-	msgType, msg, err := self.conn.Read(self.ctx)
+	/* Extract length prefix then read the message */
+	lBuf, err := self.readExact(4)
 	if err != nil {
 		return nil, err
 	}
-	if msgType != websocket.MessageBinary {
-		return nil, fmt.Errorf("got text message")
-	}
-	return msg, nil
+	l := binary.BigEndian.Uint32(lBuf)
+
+	return self.readExact(int(l))
 }
 
 func (self *wsConnection) readHandshakeMsg(expected []byte) error {
-	msg, err := self.readMsg()
+	msg, err := self.readExact(len(expected))
 	if err != nil {
 		return err
 	}
@@ -120,6 +121,23 @@ func (self *wsConnection) readHandshakeMsg(expected []byte) error {
 		return fmt.Errorf("not the same")
 	}
 	return nil
+}
+
+/* Read exactly n bytes from the connection, no matter how they are split into WebSocket messages */
+func (self *wsConnection) readExact(n int) ([]byte, error) {
+	for len(self.readBuf) < n {
+		msgType, msg, err := self.conn.Read(self.ctx)
+		if err != nil {
+			return nil, err
+		}
+		if msgType != websocket.MessageBinary {
+			return nil, fmt.Errorf("got text message")
+		}
+		self.readBuf = append(self.readBuf, msg...)
+	}
+	msg := self.readBuf[:n]
+	self.readBuf = self.readBuf[n:]
+	return msg, nil
 }
 
 func (self *wsConnection) Close() error {
