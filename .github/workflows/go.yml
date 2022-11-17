@@ -3,7 +3,7 @@ on: [push, pull_request]
 jobs:
 
   build:
-    name: Build & Test
+    name: Build & Test Go
     runs-on: ${{ matrix.os }}
     timeout-minutes: 10
     strategy:
@@ -44,7 +44,7 @@ jobs:
       run: env GOOS=android GOARCH=arm64 GOARM=5 go build -v ./...
       if: ${{ runner.os == 'Linux' }}
 
-     - name: Build for Windows i386 (RPI)
+    - name: Build for Windows i386 (RPI)
       run: env GOOS=windows GOARCH=386 go build -v ./...
       if: ${{ runner.os == 'Windows' }}
 
