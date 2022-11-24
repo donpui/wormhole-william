@@ -94,7 +94,11 @@ type wsConnection struct {
 func (self *wsConnection) writeMsg(msg []byte) error {
 	l := make([]byte, 4)
 	binary.BigEndian.PutUint32(l, uint32(len(msg)))
-	return self.conn.Write(self.ctx, websocket.MessageBinary, append(l, msg...))
+	err := self.conn.Write(self.ctx, websocket.MessageBinary, l)
+	if err != nil {
+		return err
+	}
+	return self.conn.Write(self.ctx, websocket.MessageBinary, msg)
 }
 
 func (self *wsConnection) writeHandshakeMsg(msg []byte) error {
@@ -366,17 +370,17 @@ func (d *transportCryptorClassic) writeRecord(msg []byte) error {
 	binary.BigEndian.PutUint64(nonce[crypto.NonceSize-8:], d.nextWriteNonce)
 	d.nextWriteNonce++
 
-	sealedMsg := secretbox.Seal(nil, msg, &nonce, &d.writeKey)
+	sealedMsg := secretbox.Seal(nonce[:], msg, &nonce, &d.writeKey)
 
-	nonceAndSealedMsg := append(nonce[:], sealedMsg...)
+	//nonceAndSealedMsg := append(nonce[:], sealedMsg...)
 
 	// we do an explit cast to int64 to avoid compilation failures
 	// for 32bit systems.
-	nonceAndSealedMsgSize := int64(len(nonceAndSealedMsg))
+	nonceAndSealedMsgSize := int64(len(sealedMsg))
 
 	if nonceAndSealedMsgSize >= math.MaxUint32 {
-		panic(fmt.Sprintf("writeRecord too large: %d", len(nonceAndSealedMsg)))
+		panic(fmt.Sprintf("writeRecord too large: %d", len(sealedMsg)))
 	}
 
-	return d.conn.writeMsg(nonceAndSealedMsg)
+	return d.conn.writeMsg(sealedMsg)
 }
