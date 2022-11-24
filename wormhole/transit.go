@@ -372,8 +372,6 @@ func (d *transportCryptorClassic) writeRecord(msg []byte) error {
 
 	sealedMsg := secretbox.Seal(nonce[:], msg, &nonce, &d.writeKey)
 
-	//nonceAndSealedMsg := append(nonce[:], sealedMsg...)
-
 	// we do an explit cast to int64 to avoid compilation failures
 	// for 32bit systems.
 	nonceAndSealedMsgSize := int64(len(sealedMsg))
