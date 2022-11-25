@@ -2,6 +2,8 @@ module github.com/psanford/wormhole-william
 
 go 1.13
 
+replace nhooyr.io/websocket => github.com/JustusFT/websocket v0.0.0-20221125083555-715e49bd981f
+
 require (
 	github.com/LeastAuthority/hashcash v0.0.0-20210810065817-5a4897056c24
 	github.com/cheggaaa/pb/v3 v3.0.8

@@ -12,12 +12,14 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/klauspost/compress/zip"
 	"github.com/psanford/wormhole-william/internal/crypto"
 	"github.com/psanford/wormhole-william/rendezvous"
 	"github.com/psanford/wormhole-william/wordlist"
 	"golang.org/x/crypto/nacl/secretbox"
+	"nhooyr.io/websocket"
 )
 
 // SendText sends a text message via the wormhole protocol.
@@ -432,6 +434,8 @@ func (c *Client) sendFileDirectory(ctx context.Context, offer *offerMsg, r io.Re
 			close(done)
 		}()
 
+		websocketConn, usingWebsocket := conn.(*websocket.NetConnData)
+
 		for {
 			select {
 			case <-done:
@@ -443,6 +447,21 @@ func (c *Client) sendFileDirectory(ctx context.Context, offer *offerMsg, r io.Re
 
 			if n > 0 {
 				hasher.Write(recordSlice[:n])
+
+				if usingWebsocket {
+					for {
+						bufferedAmount := websocketConn.BufferedAmount()
+						fmt.Println(bufferedAmount)
+						if bufferedAmount > 10000000 {
+							fmt.Println("hitting the brakes")
+							time.Sleep(time.Second)
+						} else {
+							fmt.Println(bufferedAmount)
+							break
+						}
+					}
+				}
+
 				err = cryptor.writeRecord(recordSlice[:n])
 				if err != nil {
 					sendErr(err)

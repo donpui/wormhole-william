@@ -1,4 +1,7 @@
-
+github.com/JustusFT/websocket v0.0.0-20221125081414-ca890a3a2b30 h1:YyFYnXVC9SUqV26yQS5OtTbPIsohmn4kg8Fjyg+usL0=
+github.com/JustusFT/websocket v0.0.0-20221125081414-ca890a3a2b30/go.mod h1:B70DZP8IakI65RVQ51MsWP/8jndNma26DVA/nFSCgW0=
+github.com/JustusFT/websocket v0.0.0-20221125083555-715e49bd981f h1:/WRiXXEcZ1ZQ3rhNMuaJ8xOpj7ppeWYRIZbCzDhB2xA=
+github.com/JustusFT/websocket v0.0.0-20221125083555-715e49bd981f/go.mod h1:B70DZP8IakI65RVQ51MsWP/8jndNma26DVA/nFSCgW0=
 github.com/LeastAuthority/hashcash v0.0.0-20210810065817-5a4897056c24 h1:dFPtOh7WWxiSUPCkennkpPGQhC42BIAnyAUl4n8cHHQ=
 github.com/LeastAuthority/hashcash v0.0.0-20210810065817-5a4897056c24/go.mod h1:dqUASfmb30ifpOuMIMXk4HSjF2BdQBIbzdcYEfRA1gw=
 github.com/VividCortex/ewma v1.1.1 h1:MnEK4VOv6n0RSY4vtRe3h11qjxL3+t0B8yOL8iMXdcM=
