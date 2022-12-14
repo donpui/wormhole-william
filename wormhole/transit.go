@@ -94,11 +94,7 @@ type wsConnection struct {
 func (self *wsConnection) writeMsg(msg []byte) error {
 	l := make([]byte, 4)
 	binary.BigEndian.PutUint32(l, uint32(len(msg)))
-	err := self.conn.Write(self.ctx, websocket.MessageBinary, l)
-	if err != nil {
-		return err
-	}
-	return self.conn.Write(self.ctx, websocket.MessageBinary, msg)
+	return self.conn.Write(self.ctx, websocket.MessageBinary, append(l, msg...))
 }
 
 func (self *wsConnection) writeHandshakeMsg(msg []byte) error {
