@@ -94,6 +94,9 @@ var targets = []target{
 	{"linux", "arm", "6"},
 	{"linux", "arm", "7"},
 	{"darwin", "amd64", ""},
+	{"darwin", "arm64", ""},
+	{"ios", "arm64", ""},
+	{"ios", "amd64", ""},
 	{"windows", "386", ""},
 	{"freebsd", "amd64", ""},
 }
