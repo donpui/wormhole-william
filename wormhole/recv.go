@@ -253,7 +253,10 @@ func (c *Client) Receive(ctx context.Context, code string, disableListener bool,
 		}
 
 		if conn == nil {
-			conn, err = transport.connectViaRelay(&gotTransitMsg)
+
+			// filter relay hints and remove duplicates
+			filteredHints := filterHints(append(transitMsg.HintsV1, gotTransitMsg.HintsV1...), "relay-v1")
+			conn, err = transport.connectViaRelay(filteredHints)
 			if err != nil {
 				return err
 			}

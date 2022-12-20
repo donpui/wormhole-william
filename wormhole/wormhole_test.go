@@ -975,6 +975,247 @@ func TestWormholeDirectoryTransportSendRecvRelay(t *testing.T) {
 	}
 }
 
+// Test when pairs when on relay fails to connect
+func TestWormholeDirectoryTransportSendRecvRelayOneFail(t *testing.T) {
+	ctx := context.Background()
+
+	rs := rendezvousservertest.NewServerLegacy()
+	defer rs.Close()
+
+	// set url which we cannot connect from one side
+	var relayFailURL = ("ws://localhost:40000")
+
+	url := rs.WebSocketURL()
+
+	for relayProtocol, newRelayServer := range relayServerConstructors {
+		t.Run(fmt.Sprintf("With %s relay server", relayProtocol), func(t *testing.T) {
+			relayServer := newRelayServer()
+			defer relayServer.close()
+			relayURL := relayServer.url.String()
+
+			var c0Verifier string
+			var c0 Client
+			c0.RendezvousURL = url
+			c0.TransitRelayURL = relayURL
+			c0.VerifierOk = func(code string) bool {
+				c0Verifier = code
+				return true
+			}
+
+			var c1Verifier string
+			var c1 Client
+			c1.RendezvousURL = url
+			c1.TransitRelayURL = relayFailURL
+			c1.VerifierOk = func(code string) bool {
+				c1Verifier = code
+				return true
+			}
+
+			personalizeContent := make([]byte, 1<<16)
+			for i := 0; i < len(personalizeContent); i++ {
+				personalizeContent[i] = byte(i)
+			}
+
+			bodiceContent := []byte("placarding-whereat")
+
+			entries := []DirectoryEntry{
+				{
+					Path: filepath.Join("skyjacking", "personalize.txt"),
+					Reader: func() (io.ReadCloser, error) {
+						b := bytes.NewReader(personalizeContent)
+						return ioutil.NopCloser(b), nil
+					},
+				},
+				{
+					Path: filepath.Join("skyjacking", "bodice-Maytag.txt"),
+					Reader: func() (io.ReadCloser, error) {
+						b := bytes.NewReader(bodiceContent)
+						return ioutil.NopCloser(b), nil
+					},
+				},
+			}
+
+			code, resultCh, err := c0.SendDirectory(ctx, "skyjacking", entries, true)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			receiver, err := c1.Receive(ctx, code, true)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			got, err := ioutil.ReadAll(receiver)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			r, err := zip.NewReader(bytes.NewReader(got), int64(len(got)))
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			for _, f := range r.File {
+				rc, err := f.Open()
+				if err != nil {
+					t.Fatal(err)
+				}
+				body, err := ioutil.ReadAll(rc)
+				if err != nil {
+					t.Fatal(err)
+				}
+				rc.Close()
+
+				if f.Name == "personalize.txt" {
+					if !bytes.Equal(body, personalizeContent) {
+						t.Fatal("personalize.txt file content does not match")
+					}
+				} else if f.Name == "bodice-Maytag.txt" {
+					if !bytes.Equal(bodiceContent, body) {
+						t.Fatalf("bodice-Maytag.txt file content does not match %s vs %s", bodiceContent, body)
+					}
+				} else {
+					t.Fatalf("Unexpected file %s", f.Name)
+				}
+			}
+
+			result := <-resultCh
+			if !result.OK {
+				t.Fatalf("Expected ok result but got: %+v", result)
+			}
+
+			if c0Verifier == "" || c1Verifier == "" {
+				t.Fatalf("Failed to get verifier code c0=%q c1=%q", c0Verifier, c1Verifier)
+			}
+
+			if c0Verifier != c1Verifier {
+				t.Fatalf("Expected verifiers to match but were different")
+			}
+		})
+	}
+}
+
+// Test when pairs use different valid relay services
+func TestWormholeDirectoryTransportSendRecvTwoRelays(t *testing.T) {
+	ctx := context.Background()
+
+	rs := rendezvousservertest.NewServerLegacy()
+	defer rs.Close()
+
+	url := rs.WebSocketURL()
+
+	for relayProtocol, newRelayServer := range relayServerConstructors {
+		t.Run(fmt.Sprintf("With %s relay server", relayProtocol), func(t *testing.T) {
+			relayServer := newRelayServer()
+			relayServerSecond := newRelayServer()
+			defer relayServer.close()
+			defer relayServerSecond.close()
+
+			relayURL := relayServer.url.String()
+			relayURLSecond := relayServerSecond.url.String()
+
+			var c0Verifier string
+			var c0 Client
+			c0.RendezvousURL = url
+			c0.TransitRelayURL = relayURL
+			c0.VerifierOk = func(code string) bool {
+				c0Verifier = code
+				return true
+			}
+
+			var c1Verifier string
+			var c1 Client
+			c1.RendezvousURL = url
+			c1.TransitRelayURL = relayURLSecond
+			c1.VerifierOk = func(code string) bool {
+				c1Verifier = code
+				return true
+			}
+
+			personalizeContent := make([]byte, 1<<16)
+			for i := 0; i < len(personalizeContent); i++ {
+				personalizeContent[i] = byte(i)
+			}
+
+			bodiceContent := []byte("placarding-whereat")
+
+			entries := []DirectoryEntry{
+				{
+					Path: filepath.Join("skyjacking", "personalize.txt"),
+					Reader: func() (io.ReadCloser, error) {
+						b := bytes.NewReader(personalizeContent)
+						return ioutil.NopCloser(b), nil
+					},
+				},
+				{
+					Path: filepath.Join("skyjacking", "bodice-Maytag.txt"),
+					Reader: func() (io.ReadCloser, error) {
+						b := bytes.NewReader(bodiceContent)
+						return ioutil.NopCloser(b), nil
+					},
+				},
+			}
+
+			code, resultCh, err := c0.SendDirectory(ctx, "skyjacking", entries, true)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			receiver, err := c1.Receive(ctx, code, true)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			got, err := ioutil.ReadAll(receiver)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			r, err := zip.NewReader(bytes.NewReader(got), int64(len(got)))
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			for _, f := range r.File {
+				rc, err := f.Open()
+				if err != nil {
+					t.Fatal(err)
+				}
+				body, err := ioutil.ReadAll(rc)
+				if err != nil {
+					t.Fatal(err)
+				}
+				rc.Close()
+
+				if f.Name == "personalize.txt" {
+					if !bytes.Equal(body, personalizeContent) {
+						t.Fatal("personalize.txt file content does not match")
+					}
+				} else if f.Name == "bodice-Maytag.txt" {
+					if !bytes.Equal(bodiceContent, body) {
+						t.Fatalf("bodice-Maytag.txt file content does not match %s vs %s", bodiceContent, body)
+					}
+				} else {
+					t.Fatalf("Unexpected file %s", f.Name)
+				}
+			}
+
+			result := <-resultCh
+			if !result.OK {
+				t.Fatalf("Expected ok result but got: %+v", result)
+			}
+
+			if c0Verifier == "" || c1Verifier == "" {
+				t.Fatalf("Failed to get verifier code c0=%q c1=%q", c0Verifier, c1Verifier)
+			}
+
+			if c0Verifier != c1Verifier {
+				t.Fatalf("Expected verifiers to match but were different")
+			}
+		})
+	}
+}
+
 type testRelayServer struct {
 	*httptest.Server
 	l       net.Listener

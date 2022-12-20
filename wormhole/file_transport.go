@@ -29,6 +29,12 @@ type fileTransportAck struct {
 
 type TransferType int
 
+// we want to know to which url we succeeded
+type successType struct {
+	relayUrl string
+	conn     net.Conn
+}
+
 const (
 	TransferFile TransferType = iota + 1
 	TransferDirectory
@@ -184,59 +190,84 @@ type fileTransport struct {
 	appID           string
 }
 
-func (t *fileTransport) connectViaRelay(otherTransit *transitMsg) (net.Conn, error) {
-
-	successChan := make(chan net.Conn)
-	failChan := make(chan string)
-
-	var count int
-
-	for _, relay := range otherTransit.HintsV1 {
-		if relay.Type == "relay-v1" {
-			for _, endpoint := range relay.Hints {
-				var relayUrl *url.URL
-				var err error
-
-				switch endpoint.Type {
-				case "direct-tcp-v1":
-					relayUrl = &url.URL{
-						Scheme: "tcp",
-						Host:   net.JoinHostPort(endpoint.Hostname, strconv.Itoa(endpoint.Port)),
-					}
-				case "websocket-v1":
-					relayUrl, err = url.Parse(endpoint.Url)
-
-				}
-				ctx, cancel := context.WithCancel(context.Background())
-
-				//in case invalid url, cancel download
-				if err == nil {
-					count++
-					go t.connectToRelay(ctx, relayUrl, successChan, failChan)
-				} else {
-					cancel()
-					continue
-				}
+// removes duplicates and returns set to minimize connections
+func filterHints(mergedHints []transitHintsV1, hintType string) []transitHintsRelay {
+	filteredHints := make(map[transitHintsRelay]struct{})
+	for _, hints := range mergedHints {
+		if hints.Type == hintType {
+			for _, hint := range hints.Hints {
+				filteredHints[hint] = struct{}{}
 			}
 		}
 	}
 
-	var conn net.Conn
+	keys := []transitHintsRelay{}
+
+	for k := range filteredHints {
+		keys = append(keys, k)
+	}
+	return keys
+}
+
+func (t *fileTransport) connectViaRelay(filteredHints []transitHintsRelay) (net.Conn, error) {
+
+	successChan := make(chan successType, 1)
+	failChan := make(chan string)
+
+	var count int
+
+	cancelMap := make(map[string]context.CancelFunc)
+
+	for _, endpoint := range filteredHints {
+		var relayUrl *url.URL
+		var err error
+
+		switch endpoint.Type {
+		case "direct-tcp-v1":
+			relayUrl = &url.URL{
+				Scheme: "tcp",
+				Host:   net.JoinHostPort(endpoint.Hostname, strconv.Itoa(endpoint.Port)),
+			}
+		case "websocket-v1":
+			relayUrl, err = url.Parse(endpoint.Url)
+		}
+
+		if err == nil && relayUrl != nil {
+			ctx, cancel := context.WithCancel(context.Background())
+			cancelMap[relayUrl.String()] = cancel
+
+			count++
+			go t.connectToRelay(ctx, relayUrl, successChan, failChan)
+
+		} else {
+			continue
+		}
+	}
+
+	var s successType
 
 	for i := 0; i < count; i++ {
 		select {
 		case <-failChan:
-		case conn = <-successChan:
+		case s = <-successChan:
+			// cancel all other connections context
+			for cancelUrl, cancel := range cancelMap {
+				if s.relayUrl != cancelUrl {
+					cancel()
+				}
+			}
+			// return function straight away after first success
+			return s.conn, nil
 		}
 	}
 
-	return conn, nil
+	return nil, nil
 }
 
 func (t *fileTransport) connectDirect(otherTransit *transitMsg) (net.Conn, error) {
 	cancelFuncs := make(map[string]func())
 
-	successChan := make(chan net.Conn)
+	successChan := make(chan successType, 1)
 	failChan := make(chan string)
 
 	var count int
@@ -254,27 +285,22 @@ func (t *fileTransport) connectDirect(otherTransit *transitMsg) (net.Conn, error
 		}
 	}
 
-	var conn net.Conn
+	var s successType
 
 	for i := 0; i < count; i++ {
 		select {
 		case <-failChan:
-		case conn = <-successChan:
+		case s = <-successChan:
 		}
 	}
 
-	return conn, nil
+	return s.conn, nil
 }
 
-func (t *fileTransport) connectToRelay(ctx context.Context, relayUrl *url.URL, successChan chan net.Conn, failChan chan string) {
+func (t *fileTransport) connectToRelay(ctx context.Context, relayUrl *url.URL, successChan chan successType, failChan chan string) {
 	var d net.Dialer
 	var conn net.Conn
 	var err error
-
-	//in case address is not provide in hints, try default
-	if relayUrl == nil {
-		relayUrl = t.relayURL
-	}
 
 	switch relayUrl.Scheme {
 	case "tcp":
@@ -314,10 +340,10 @@ func (t *fileTransport) connectToRelay(ctx context.Context, relayUrl *url.URL, s
 		failChan <- relayUrl.String()
 		return
 	}
-	t.directRecvHandshake(ctx, conn, successChan, failChan)
+	t.directRecvHandshake(relayUrl.String(), ctx, conn, successChan, failChan)
 }
 
-func (t *fileTransport) connectToSingleHost(ctx context.Context, addr string, successChan chan net.Conn, failChan chan string) {
+func (t *fileTransport) connectToSingleHost(ctx context.Context, addr string, successChan chan successType, failChan chan string) {
 	var d net.Dialer
 	fmt.Println("Downloading... directly")
 	conn, err := d.DialContext(ctx, "tcp", addr)
@@ -327,13 +353,12 @@ func (t *fileTransport) connectToSingleHost(ctx context.Context, addr string, su
 		return
 	}
 
-	t.directRecvHandshake(ctx, conn, successChan, failChan)
+	t.directRecvHandshake(addr, ctx, conn, successChan, failChan)
 }
 
-func (t *fileTransport) directRecvHandshake(ctx context.Context, conn net.Conn, successChan chan net.Conn, failChan chan string) {
+func (t *fileTransport) directRecvHandshake(addr string, ctx context.Context, conn net.Conn, successChan chan successType, failChan chan string) {
 	expectHeader := t.senderHandshakeHeader()
 
-	addr := t.relayURL.Host
 	gotHeader := make([]byte, len(expectHeader))
 
 	_, err := io.ReadFull(conn, gotHeader)
@@ -370,7 +395,7 @@ func (t *fileTransport) directRecvHandshake(ctx context.Context, conn net.Conn, 
 		return
 	}
 
-	successChan <- conn
+	successChan <- successType{addr, conn}
 }
 
 func (t *fileTransport) makeTransitMsg() (*transitMsg, error) {
@@ -410,23 +435,20 @@ func (t *fileTransport) makeTransitMsg() (*transitMsg, error) {
 		}
 	}
 
-	if t.relayConn != nil {
-		var relayType string
-		switch t.relayURL.Scheme {
-		case "tcp":
-			relayType = "direct-tcp-v1"
-		case "ws":
-			relayType = "websocket-v1"
-		case "wss":
-			relayType = "websocket-v1"
-		default:
-			return nil, fmt.Errorf("%w: '%s'", UnsupportedProtocolErr, t.relayURL.Scheme)
-		}
-		if relayType == "direct-tcp-v1" {
-			var port, err = strconv.Atoi(t.relayURL.Port())
-			if err != nil {
-				return nil, fmt.Errorf("invalid port")
-			}
+	var relayType string
+	switch t.relayURL.Scheme {
+	case "tcp":
+		relayType = "direct-tcp-v1"
+	case "ws":
+		relayType = "websocket-v1"
+	case "wss":
+		relayType = "websocket-v1"
+	default:
+		return nil, fmt.Errorf("%w: '%s'", UnsupportedProtocolErr, t.relayURL.Scheme)
+	}
+	if relayType == "direct-tcp-v1" {
+		var port, err = strconv.Atoi(t.relayURL.Port())
+		if err == nil {
 			msg.HintsV1 = append(msg.HintsV1, transitHintsV1{
 				Type: "relay-v1",
 				Hints: []transitHintsRelay{
@@ -437,17 +459,17 @@ func (t *fileTransport) makeTransitMsg() (*transitMsg, error) {
 					},
 				},
 			})
-		} else {
-			msg.HintsV1 = append(msg.HintsV1, transitHintsV1{
-				Type: "relay-v1",
-				Hints: []transitHintsRelay{
-					{
-						Type: relayType,
-						Url:  t.relayURL.String(),
-					},
-				},
-			})
 		}
+	} else {
+		msg.HintsV1 = append(msg.HintsV1, transitHintsV1{
+			Type: "relay-v1",
+			Hints: []transitHintsRelay{
+				{
+					Type: relayType,
+					Url:  t.relayURL.String(),
+				},
+			},
+		})
 	}
 
 	return &msg, nil
@@ -661,7 +683,6 @@ func (t *fileTransport) handleIncomingConnection(conn net.Conn, readyCh chan<- n
 		close(okCh)
 		return
 	}
-
 	select {
 	case okCh <- struct{}{}:
 	case <-cancelCh:
