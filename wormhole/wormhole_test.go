@@ -244,8 +244,22 @@ func TestWormholeFileReject(t *testing.T) {
 
 	result := <-resultCh
 	expectErr := "TransferError: transfer rejected"
+	expectMood := "happy"
+
+	//checks clients closure status in Mailbox
+	closeMoods := rs.CloseMoods()
+
+	if closeMoods == nil {
+		t.Fatalf("Expected to get mood, but got nothing")
+	}
+
+	for side, mood := range closeMoods {
+		if mood != expectMood {
+			t.Fatalf("Expected %q result, but got: %+v, side: %+v", expectMood, mood, side)
+		}
+	}
 	if result.Error.Error() != expectErr {
-		t.Fatalf("Expected %q result but got: %+v", expectErr, result)
+		t.Fatalf("Expected %q result, but got: %+v", expectErr, result)
 	}
 }
 

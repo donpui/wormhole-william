@@ -102,6 +102,8 @@ type SendResult struct {
 
 var errDecryptFailed = errors.New("decrypt message failed")
 
+var errOfferRejected = errors.New("TransferError: transfer rejected")
+
 func openAndUnmarshal(v interface{}, mb rendezvous.MailboxEvent, sharedKey []byte) error {
 	keySlice := derivePhaseKey(string(sharedKey), mb.Side, mb.Phase)
 	nonceAndSealedMsg, err := hex.DecodeString(mb.Body)

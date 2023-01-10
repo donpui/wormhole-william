@@ -245,9 +245,13 @@ func (c *Client) sendFileDirectory(ctx context.Context, offer *offerMsg, r io.Re
 	ch := make(chan SendResult, 1)
 	go func() {
 		var returnErr error
+
 		defer func() {
 			mood := rendezvous.Errory
+
 			if returnErr == nil {
+				mood = rendezvous.Happy
+			} else if returnErr.Error() == errOfferRejected.Error() {
 				mood = rendezvous.Happy
 			} else if returnErr == errDecryptFailed {
 				mood = rendezvous.Scary

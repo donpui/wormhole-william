@@ -128,6 +128,23 @@ func (ts *TestServer) Agents() [][]string {
 	return ts.agents
 }
 
+func (ts *TestServer) CloseMoods() map[string]string {
+	ts.mu.Lock()
+	defer ts.mu.Unlock()
+
+	closeMoods := make(map[string]string)
+
+	for _, mbox := range ts.mailboxes {
+		for _, msg := range mbox.msgs {
+			if msg.msgType == "close" {
+				closeMoods[msg.side] = msg.body
+			}
+		}
+	}
+
+	return closeMoods
+}
+
 func (ts *TestServer) WebSocketURL() string {
 	u, err := url.Parse(ts.URL)
 	if err != nil {
@@ -177,10 +194,32 @@ func (m *mailbox) Add(side string, addMsg *msgs.Add) {
 	}
 }
 
+func (m *mailbox) AddClose(side string, addMsg *msgs.Close) {
+	m.Lock()
+	defer m.Unlock()
+
+	msg := mboxMsg{
+		side:    side,
+		msgType: addMsg.Type,
+		body:    addMsg.Mood,
+	}
+
+	m.msgs = append(m.msgs, msg)
+
+	for side, c := range m.clients {
+		select {
+		case c <- msg:
+		case <-time.After(1 * time.Second):
+			log.Printf("Send to %s timed out", side)
+		}
+	}
+}
+
 type mboxMsg struct {
-	side  string
-	phase string
-	body  string
+	side    string
+	msgType string
+	phase   string
+	body    string
 }
 
 var wsUpgrader = websocket.Upgrader{
@@ -483,6 +522,7 @@ func (ts *TestServer) withWelcome(welcomeMsg *msgs.Welcome) func(http.ResponseWr
 				for _, mboxMsg := range pendingMsgs {
 					msg := &msgs.Message{
 						Side:  mboxMsg.side,
+						Type:  mboxMsg.msgType,
 						Phase: mboxMsg.phase,
 						Body:  mboxMsg.body,
 					}
@@ -493,6 +533,7 @@ func (ts *TestServer) withWelcome(welcomeMsg *msgs.Welcome) func(http.ResponseWr
 					for mboxMsg := range msgChan {
 						msg := &msgs.Message{
 							Side:  mboxMsg.side,
+							Type:  mboxMsg.msgType,
 							Phase: mboxMsg.phase,
 							Body:  mboxMsg.body,
 						}
@@ -522,6 +563,9 @@ func (ts *TestServer) withWelcome(welcomeMsg *msgs.Welcome) func(http.ResponseWr
 
 			case *msgs.Close:
 				ackMsg(m.ID)
+				if openMailbox != nil {
+					openMailbox.AddClose(sideID, m)
+				}
 
 				sendMsg(&msgs.ClosedResp{})
 

@@ -343,9 +343,15 @@ func Client_RecvFile(_ js.Value, args []js.Value) interface{} {
 		}
 
 		readerObj := NewFileStreamReader(ctx, msg)
-		readerObj.Set("cancel", js.FuncOf(func(_ js.Value, args []js.Value) interface{} {
-			cancel()
-			return nil
+		readerObj.Set("reject", js.FuncOf(func(_ js.Value, args []js.Value) interface{} {
+			return NewPromise(func(resolve ResolveFn, reject RejectFn) {
+				go func() {
+					msg.Reject()
+					cancel()
+				}()
+				<-ctx.Done()
+				resolve(nil)
+			})
 		}))
 		resolve(readerObj)
 	})
