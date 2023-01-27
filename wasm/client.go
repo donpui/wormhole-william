@@ -209,17 +209,15 @@ func Client_SendFile(_ js.Value, args []js.Value) interface{} {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	return NewPromise(func(resolve ResolveFn, reject RejectFn) {
-		if len(args) != 3 && len(args) != 4 {
-			reject(fmt.Errorf("invalid number of arguments: %d. expected: %s", len(args), "3 or 4"))
-			return
+		_reject := func(err error) {
+			reject(err)
+			cancel()
 		}
 
-		go func() {
-			<-ctx.Done()
-			if err := ctx.Err(); err != nil {
-				reject(err)
-			}
-		}()
+		if len(args) != 3 && len(args) != 4 {
+			_reject(fmt.Errorf("invalid number of arguments: %d. expected: %s", len(args), "3 or 4"))
+			return
+		}
 
 		clientPtr := uintptr(args[0].Int())
 		fileName := args[1].String()
@@ -227,13 +225,13 @@ func Client_SendFile(_ js.Value, args []js.Value) interface{} {
 		fileJSVal := args[2]
 		fileWrapper, err := NewFileWrapper(fileJSVal)
 		if err != nil {
-			reject(err)
+			_reject(err)
 			return
 		}
 
 		err, client := getClient(clientPtr)
 		if err != nil {
-			reject(err)
+			_reject(err)
 			return
 		}
 
@@ -244,7 +242,7 @@ func Client_SendFile(_ js.Value, args []js.Value) interface{} {
 
 		code, resultChan, err := client.SendFile(ctx, fileName, fileWrapper, NO_LISTEN, opts...)
 		if err != nil {
-			reject(err)
+			_reject(err)
 			return
 		}
 
@@ -256,6 +254,7 @@ func Client_SendFile(_ js.Value, args []js.Value) interface{} {
 		}))
 		returnObj.Set("done", NewPromise(
 			func(resolve ResolveFn, reject RejectFn) {
+				defer cancel()
 				select {
 				case result := <-resultChan:
 					switch {
@@ -310,16 +309,13 @@ func Client_RecvFile(_ js.Value, args []js.Value) interface{} {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	return NewPromise(func(resolve ResolveFn, reject RejectFn) {
-		// TODO: improve
-		go func() {
-			<-ctx.Done()
-			if err := ctx.Err(); err != nil {
-				reject(err)
-			}
-		}()
+		_reject := func(err error) {
+			reject(err)
+			cancel()
+		}
 
 		if len(args) != 2 && len(args) != 3 {
-			reject(fmt.Errorf("invalid number of arguments: %d. expected: %d or %d", len(args), 2, 3))
+			_reject(fmt.Errorf("invalid number of arguments: %d. expected: %d or %d", len(args), 2, 3))
 			return
 		}
 
@@ -327,7 +323,7 @@ func Client_RecvFile(_ js.Value, args []js.Value) interface{} {
 		code := args[1].String()
 		err, client := getClient(clientPtr)
 		if err != nil {
-			reject(err)
+			_reject(err)
 			return
 		}
 
@@ -338,11 +334,15 @@ func Client_RecvFile(_ js.Value, args []js.Value) interface{} {
 
 		msg, err := client.Receive(ctx, code, true, opts...)
 		if err != nil {
-			reject(err)
+			_reject(err)
 			return
 		}
 
-		readerObj := NewFileStreamReader(ctx, msg)
+		readerObj := NewFileStreamReader(ctx, cancel, msg)
+		readerObj.Set("cancel", js.FuncOf(func(_ js.Value, args []js.Value) interface{} {
+			cancel()
+			return nil
+		}))
 		readerObj.Set("reject", js.FuncOf(func(_ js.Value, args []js.Value) interface{} {
 			return NewPromise(func(resolve ResolveFn, reject RejectFn) {
 				go func() {
@@ -357,45 +357,36 @@ func Client_RecvFile(_ js.Value, args []js.Value) interface{} {
 	})
 }
 
-func NewFileStreamReader(ctx context.Context, msg *wormhole.IncomingMessage) js.Value {
+func NewFileStreamReader(ctx context.Context, cancelFunc context.CancelFunc, msg *wormhole.IncomingMessage) js.Value {
 	// TODO: parameterize
 	bufSize := 1024 * 4 // 4KiB
 
 	total := 0
 	readFunc := func(_ js.Value, args []js.Value) interface{} {
 		buf := make([]byte, bufSize)
-		quit := make(chan bool)
 		return NewPromise(func(resolve ResolveFn, reject RejectFn) {
-			// TODO: improve
-			go func() {
-				select {
-				case <-ctx.Done():
-					if err := ctx.Err(); err != nil {
-						reject(err)
-					}
-				case <-quit:
-					return
-				}
-			}()
-			defer func() { quit <- true }()
-
-			if len(args) != 1 {
-				reject(fmt.Errorf("invalid number of arguments: %d. expected: %d", len(args), 1))
-			}
-
 			jsBuf := args[0]
 			_resolve := func(n int, done bool) {
 				js.CopyBytesToJS(jsBuf, buf[:n])
 				resolve(js.Global().Get("Array").New(n, done))
 			}
+			_reject := func(err error) {
+				reject(err)
+				cancelFunc()
+			}
+
+			if len(args) != 1 {
+				_reject(fmt.Errorf("invalid number of arguments: %d. expected: %d", len(args), 1))
+			}
 			n, err := msg.Read(buf)
 			total += n
 			if err != nil {
-				reject(err)
+				_reject(err)
 				return
 			}
 			if msg.ReadDone() {
 				_resolve(n, true)
+				cancelFunc()
 				return
 			}
 			_resolve(n, false)

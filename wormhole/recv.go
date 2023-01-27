@@ -273,6 +273,13 @@ func (c *Client) Receive(ctx context.Context, code string, disableListener bool,
 		return nil
 	}
 
+	go func() {
+		<-ctx.Done()
+		if fr.cryptor != nil {
+			fr.cryptor.Close()
+		}
+	}()
+
 	fr.initializeTransfer = acceptAndInitialize
 	fr.rejectTransfer = reject
 
