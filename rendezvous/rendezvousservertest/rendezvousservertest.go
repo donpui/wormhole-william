@@ -1,6 +1,7 @@
 package rendezvousservertest
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -16,9 +17,10 @@ import (
 	"time"
 
 	"github.com/LeastAuthority/hashcash"
-	"github.com/gorilla/websocket"
 	"github.com/psanford/wormhole-william/internal/crypto"
 	"github.com/psanford/wormhole-william/rendezvous/internal/msgs"
+	"nhooyr.io/websocket"
+	"nhooyr.io/websocket/wsjson"
 )
 
 type TestServer struct {
@@ -58,6 +60,7 @@ func NewServerWithPermNone() *TestServer {
 	}
 
 	smux := http.NewServeMux()
+
 	smux.HandleFunc("/ws", ts.withWelcome(&msgs.Welcome{
 		Welcome: msgs.WelcomeServerInfo{
 			MOTD: TestMotd,
@@ -222,11 +225,6 @@ type mboxMsg struct {
 	body    string
 }
 
-var wsUpgrader = websocket.Upgrader{
-	ReadBufferSize:  1024,
-	WriteBufferSize: 1024,
-}
-
 func prepareServerMsg(msg interface{}) {
 	ptr := reflect.TypeOf(msg)
 
@@ -284,20 +282,27 @@ func serverUnmarshal(m []byte) (interface{}, error) {
 
 func (ts *TestServer) withWelcome(welcomeMsg *msgs.Welcome) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		c, err := wsUpgrader.Upgrade(w, r, nil)
+
+		c, err := websocket.Accept(w, r, &websocket.AcceptOptions{
+			InsecureSkipVerify: true,
+		})
 		if err != nil {
 			panic(err)
 		}
-		defer c.Close()
+		defer c.Close(websocket.StatusNormalClosure, "Test server closed")
 
+		ctx := context.Background()
 		var sendMu sync.Mutex
 		sendMsg := func(msg interface{}) {
+
 			prepareServerMsg(msg)
 			sendMu.Lock()
 			defer sendMu.Unlock()
-			err = c.WriteJSON(msg)
+			err = wsjson.Write(ctx, c, msg)
 			if err != nil {
-				panic(err)
+				fmt.Println("WS Write", err)
+				//panic(err)
+				return
 			}
 		}
 
@@ -349,7 +354,8 @@ func (ts *TestServer) withWelcome(welcomeMsg *msgs.Welcome) func(http.ResponseWr
 			}
 		}
 		for {
-			_, msgBytes, err := c.ReadMessage()
+			_, msgBytes, err := c.Read(ctx)
+
 			if _, isCloseErr := err.(*websocket.CloseError); err == io.EOF || isCloseErr {
 				break
 			} else if err != nil {
@@ -386,7 +392,7 @@ func (ts *TestServer) withWelcome(welcomeMsg *msgs.Welcome) func(http.ResponseWr
 							permissionGranted = true
 						} else {
 							// send an error to the client and close the connection
-							errMsg(m.ID, m, fmt.Errorf("Bad stamp, permission denied: %v", err))
+							errMsg(m.ID, m, fmt.Errorf("bad stamp, permission denied: %v", err))
 							continue
 						}
 					}

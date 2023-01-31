@@ -428,6 +428,7 @@ func TestWormholeFileTransportRecvMidStreamCancel(t *testing.T) {
 			}
 
 			result := <-resultCh
+			fmt.Println(result)
 			if result.OK {
 				t.Fatalf("Expected error result but got ok")
 			}
@@ -445,6 +446,7 @@ func TestWormholeFileTransportSendMidStreamCancel(t *testing.T) {
 
 	for relayProtocol, newRelayServer := range relayServerConstructors {
 		t.Run(fmt.Sprintf("With %s relay server", relayProtocol), func(t *testing.T) {
+
 			relayServer := newRelayServer()
 			relayURL := relayServer.url.String()
 			defer relayServer.close()

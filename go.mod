@@ -5,7 +5,6 @@ go 1.13
 require (
 	github.com/LeastAuthority/hashcash v0.0.0-20210810065817-5a4897056c24
 	github.com/cheggaaa/pb/v3 v3.0.8
-	github.com/gorilla/websocket v1.5.0
 	github.com/klauspost/compress v1.15.0
 	github.com/mdp/qrterminal/v3 v3.0.0
 	github.com/spf13/cobra v1.5.0
